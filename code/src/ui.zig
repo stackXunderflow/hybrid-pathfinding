@@ -34,13 +34,15 @@ pub const Scene = struct {
     blobs: []const Mesh,
 };
 
-pub fn showBlocking(gpa: Allocator, args: std.process.Args, scene: Scene) !void {
+pub fn showBlocking(gpa: Allocator, args: []const [:0]const u8, scene: Scene) !void {
     var arena = std.heap.ArenaAllocator.init(gpa);
     const allocator = arena.allocator();
     defer arena.deinit();
 
-    const argv = try qt6.init(allocator, args);
-    defer qt6.deinit(allocator, argv);
+    const argv = try allocator.alloc([:0]u8, args.len);
+    defer allocator.free(argv);
+    for (args, 0..) |arg, i|
+        argv[i] = try allocator.dupeZ(u8, arg);
     var argc: i32 = @intCast(argv.len);
     const qapp = QApplication.New(allocator, &argc, argv);
     defer qapp.Delete();

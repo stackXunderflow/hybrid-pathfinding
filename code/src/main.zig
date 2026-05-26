@@ -24,9 +24,12 @@ pub fn readScene(allocator: Allocator, io: std.Io, path: []const u8) !std.json.P
 }
 
 pub fn main(init: std.process.Init) !void {
+    const args = try init.minimal.args.toSlice(init.gpa);
+    defer init.gpa.free(args);
+
     const parsed = try readScene(init.gpa, init.io, "scene.json");
     defer parsed.deinit();
 
     const blobs: []const Mesh = &[0]Mesh{};
-    try ui.showBlocking(init.gpa, init.minimal.args, .{ .meshs = parsed.value.meshs, .blobs = blobs });
+    try ui.showBlocking(init.gpa, args, .{ .meshs = parsed.value.meshs, .blobs = blobs });
 }
