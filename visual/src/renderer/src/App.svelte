@@ -18,10 +18,10 @@
 		<div class="status error">{$error}</div>
 	{:else if $currentScene}
 		<div class="canvas-wrapper">
-			<Canvas blobs={$currentScene.blobs} />
+			<Canvas blobs={$currentScene.blobs} robot={$currentScene.robot} />
 		</div>
 		<div class="info">
-			Блобов: {$currentScene.blobs.length}
+			Блобов: {$currentScene.blobs.length} | Робот: ({$currentScene.robot.start.x}, {$currentScene.robot.start.y}) → ({$currentScene.robot.end.x}, {$currentScene.robot.end.y})
 		</div>
 	{/if}
 

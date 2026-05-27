@@ -1,14 +1,18 @@
 const std = @import("std");
-const cli = @import("cli");
 const Allocator = std.mem.Allocator;
 
+const cli = @import("cli");
 const code = @import("code");
 
 const common = @import("common.zig");
 const Point = common.Point;
 const Mesh = common.Mesh;
+const global = @import("global.zig");
+
+const Robot = struct { radius: f32, start: Point, end: Point };
 
 const SceneJson = struct {
+    robot: Robot,
     meshs: []const Mesh,
 };
 
@@ -29,6 +33,7 @@ const BlobContent = struct {
 };
 
 const Output = struct {
+    robot: Robot,
     blobs: []const BlobContent,
 };
 
@@ -58,12 +63,19 @@ pub fn main(init: std.process.Init) !void {
 }
 
 fn run() !void {
-    const parsed = try readScene(ginit.gpa, ginit.io, config.scene_path);
-    defer parsed.deinit();
+    var arena = std.heap.ArenaAllocator.init(ginit.gpa);
+    defer arena.deinit();
+    const allocator = arena.allocator();
 
-    // alg here
+    const parsed = try readScene(allocator, ginit.io, config.scene_path);
 
-    const empty_mesh: Mesh = .{ .points = &[0]Point{} };
-    const blobs_content = [1]BlobContent{.{ .blob = empty_mesh, .meshs = parsed.value.meshs }};
-    try output(ginit.io, .{ .blobs = &blobs_content });
+    var blobs: std.ArrayList(BlobContent) = try .initCapacity(allocator, parsed.value.meshs.len);
+    for (parsed.value.meshs) |mesh| {
+        const blob = try global.andrewAlgorithm(allocator, mesh);
+        const meshs = try allocator.alloc(Mesh, 1);
+        meshs[0] = mesh;
+        blobs.appendAssumeCapacity(.{ .blob = blob, .meshs = meshs });
+    }
+
+    try output(ginit.io, .{ .robot = parsed.value.robot, .blobs = blobs.items });
 }

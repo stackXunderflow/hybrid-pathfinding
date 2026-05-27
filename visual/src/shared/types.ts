@@ -12,6 +12,13 @@ export interface BlobContent {
 	meshs: Mesh[];
 }
 
+export interface Robot {
+	radius: number;
+	start: Point;
+	end: Point;
+}
+
 export interface SceneOutput {
+	robot: Robot;
 	blobs: BlobContent[];
 }

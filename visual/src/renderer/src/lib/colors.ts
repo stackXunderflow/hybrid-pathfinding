@@ -5,6 +5,9 @@ export const meshColors = [
 
 export const blobColor = '#f77f00';
 
+export const robotColor = '#2b9348';
+export const robotFill = '#2b934820';
+
 export const theme = {
 	background: '#ffffff',
 	surface: '#f8f9fa',
