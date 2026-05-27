@@ -32,9 +32,9 @@
     // Once all dependencies are fetched, `zig build` no longer requires
     // internet connectivity.
     .dependencies = .{
-        .libqt6zig = .{
-            .url = "https://github.com/rcalixte/libqt6zig/archive/e07cf4a.tar.gz",
-            .hash = "libqt6zig-6.8.2-OSXtXOxSwxtHplzY2SW2mcoDxF28Hz7kgkR4FReRIOLl",
+        .cli = .{
+            .url = "git+https://github.com/sam701/zig-cli#036341c48b32ef355274d66461551772fc1f202d",
+            .hash = "cli-0.11.0-2eKe_6sIAQB1njsE9sfrNvd2HxmQej13ebo-D3kBuFX3",
         },
     },
     .paths = .{

@@ -1,4 +1,5 @@
 const std = @import("std");
+const cli = @import("cli");
 const Allocator = std.mem.Allocator;
 
 const code = @import("code");
@@ -6,7 +7,6 @@ const code = @import("code");
 const common = @import("common.zig");
 const Point = common.Point;
 const Mesh = common.Mesh;
-const ui = @import("ui.zig");
 
 const SceneJson = struct {
     meshs: []const Mesh,
@@ -23,13 +23,47 @@ pub fn readScene(allocator: Allocator, io: std.Io, path: []const u8) !std.json.P
     return try std.json.parseFromSlice(SceneJson, allocator, json.written(), .{});
 }
 
-pub fn main(init: std.process.Init) !void {
-    const args = try init.minimal.args.toSlice(init.gpa);
-    defer init.gpa.free(args);
+const BlobContent = struct {
+    blob: Mesh,
+    meshs: []const Mesh,
+};
 
-    const parsed = try readScene(init.gpa, init.io, "scene.json");
+const Output = struct {
+    blobs: []const BlobContent,
+};
+
+fn output(io: std.Io, content: Output) !void {
+    var buffer: [1024]u8 = undefined;
+    var stdout = std.Io.File.stdout();
+    var writer = stdout.writer(io, &buffer);
+    var stringify = std.json.Stringify{ .writer = &writer.interface, .options = .{ .whitespace = .indent_4 } };
+    try stringify.write(content);
+    try writer.flush();
+}
+
+var config = struct {
+    scene_path: []const u8 = "",
+}{};
+
+var ginit: std.process.Init = undefined;
+
+pub fn main(init: std.process.Init) !void {
+    ginit = init;
+    var r = cli.AppRunner.init(&init);
+    defer r.deinit();
+
+    const app = cli.App{ .command = cli.Command{ .name = "scene", .options = try r.allocOptions(&.{.{ .long_name = "scene", .help = "Путь до сцены", .value_ref = r.mkRef(&config.scene_path) }}), .target = cli.CommandTarget{ .action = cli.CommandAction{ .exec = run } } } };
+
+    return r.run(&app);
+}
+
+fn run() !void {
+    const parsed = try readScene(ginit.gpa, ginit.io, config.scene_path);
     defer parsed.deinit();
 
-    const blobs: []const Mesh = &[0]Mesh{};
-    try ui.showBlocking(init.gpa, args, .{ .meshs = parsed.value.meshs, .blobs = blobs });
+    // alg here
+
+    const empty_mesh: Mesh = .{ .points = &[0]Point{} };
+    const blobs_content = [1]BlobContent{.{ .blob = empty_mesh, .meshs = parsed.value.meshs }};
+    try output(ginit.io, .{ .blobs = &blobs_content });
 }

@@ -1,7 +1,4 @@
 const std = @import("std");
-const host_os = @import("builtin").os.tag;
-
-const qtlibs = [_][]const u8{ "qapplication", "qwidget", "qpushbutton", "qabstractbutton", "qcombobox", "qlabel", "qtextedit", "qboxlayout", "qtimer", "qcolor", "qevent", "qgraphicsitem", "qgraphicsscene", "qgraphicssceneevent", "qgraphicsview", "qguiapplication", "qimage", "qmainwindow", "qpixmap", "qpainter", "qpen", "qpoint", "qrect", "qstatusbar", "qabstractscrollarea", "qpainterpath", "qbrush" };
 
 // Although this function looks imperative, it does not perform the build
 // directly and instead it mutates the build graph (`b`) that will be then
@@ -86,31 +83,8 @@ pub fn build(b: *std.Build) void {
         }),
     });
 
-    // qt6zig
-    const qt6zig = b.dependency("libqt6zig", .{
-        .target = target,
-        .optimize = .ReleaseFast,
-    });
-
-    exe.root_module.addImport("libqt6zig", qt6zig.module("libqt6zig"));
-
-    const base_libs =
-        [_][]const u8{
-            "Qt6Core",
-            "Qt6Gui",
-            "Qt6Widgets",
-        };
-
-    exe.root_module.link_libcpp = true;
-    for (qtlibs) |lib|
-        exe.root_module.linkLibrary(qt6zig.artifact(lib));
-    for (base_libs) |lib|
-        exe.root_module.linkSystemLibrary(lib, .{});
-
-    if (host_os == .windows) {
-        const qt_lib_path: std.Build.LazyPath = .{ .cwd_relative = "C:\\Qt\\6.8.3\\llvm-mingw_64\\lib" };
-        exe.root_module.addLibraryPath(qt_lib_path);
-    }
+    const cli_dep = b.dependency("cli", .{});
+    exe.root_module.addImport("cli", cli_dep.module("cli"));
 
     // This declares intent for the executable to be installed into the
     // install prefix when running `zig build` (i.e. when executing the default

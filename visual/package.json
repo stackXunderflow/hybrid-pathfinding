@@ -1,0 +1,27 @@
+{
+  "name": "visual",
+  "version": "1.0.0",
+  "description": "",
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "start": "electron-vite dev"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^6.2.4",
+    "@types/node": "^25.9.1",
+    "electron": "^42.3.0",
+    "electron-vite": "^5.0.0",
+    "svelte": "^5.55.9",
+    "typescript": "^6.0.3",
+    "vite": "^7.3.3"
+  },
+  "dependencies": {
+    "chokidar": "^5.0.0"
+  }
+}
