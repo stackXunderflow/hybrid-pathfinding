@@ -7,8 +7,16 @@ import type { SceneOutput } from '../shared/types';
 const __dirname = import.meta.dirname;
 
 const visualDir = resolve(__dirname, '../..');
-const binaryPath = resolve(visualDir, import.meta.env.VITE_BINARY_PATH || '../code/zig-out/bin/code');
-const defaultScenePath = resolve(visualDir, import.meta.env.VITE_SCENE_PATH || '../code/scene.json');
+const binaryPath = (() => {
+	const p = import.meta.env.VITE_BINARY_PATH;
+	if (!p) throw new Error('VITE_BINARY_PATH is not set');
+	return resolve(visualDir, p);
+})();
+const defaultScenePath = (() => {
+	const p = import.meta.env.VITE_SCENE_PATH;
+	if (!p) throw new Error('VITE_SCENE_PATH is not set');
+	return resolve(visualDir, p);
+})();
 
 function execBinary(scenePath: string): Promise<string> {
 	return new Promise((resolve, reject) => {
@@ -49,9 +57,11 @@ app.whenReady().then(() => {
 	createWindow();
 
 	const watcher = watch(binaryPath, { ignoreInitial: true });
-	watcher.on('change', () => {
+	const notify = () => {
 		if (mainWindow && !mainWindow.isDestroyed()) {
 			mainWindow.webContents.send('binary-changed');
 		}
-	});
+	};
+	watcher.on('change', notify);
+	watcher.on('add', notify);
 });
