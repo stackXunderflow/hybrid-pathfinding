@@ -7,7 +7,8 @@ const code = @import("code");
 const common = @import("common.zig");
 const Point = common.Point2;
 const Mesh = common.Mesh;
-const global = @import("global.zig");
+const global = @import("GlobalGeometry.zig");
+const BlobContent = global.BlobContent;
 
 const Robot = struct { radius: f32, start: Point, end: Point };
 
@@ -26,11 +27,6 @@ pub fn readScene(allocator: Allocator, io: std.Io, path: []const u8) !std.json.P
 
     return try std.json.parseFromSlice(SceneJson, allocator, json.written(), .{});
 }
-
-const BlobContent = struct {
-    blob: Mesh,
-    meshs: []const Mesh,
-};
 
 const Output = struct {
     robot: Robot,
@@ -69,21 +65,8 @@ fn run() !void {
 
     const parsed = try readScene(allocator, ginit.io, config.scene_path);
 
-    var blobs: std.ArrayList(BlobContent) = try .initCapacity(allocator, parsed.value.meshs.len);
-    for (parsed.value.meshs) |mesh| {
-        const blob = try global.andrewAlgorithm(allocator, mesh);
-        const meshs = try allocator.alloc(Mesh, 1);
-        meshs[0] = mesh;
-        blobs.appendAssumeCapacity(.{ .blob = blob, .meshs = meshs });
-    }
-    var new_blobs: std.ArrayList(BlobContent) = try .initCapacity(allocator, blobs.items.len);
-    for (blobs.items) |blob| {
-        const biggerBlob = try global.increaseArea(allocator, blob.blob, parsed.value.robot.radius);
-        allocator.free(blob.blob.points);
-        const meshs = try allocator.alloc(BlobContent, 1);
-        meshs[0] = blob;
-        new_blobs.appendAssumeCapacity(.{ .blob = biggerBlob, .meshs = blob.meshs });
-    }
+    const get = try global.globalGeometry(allocator, parsed.value.meshs, parsed.value.robot.radius);
+    const result = try get.getBlobs();
 
-    try output(ginit.io, .{ .robot = parsed.value.robot, .blobs = new_blobs.items });
+    try output(ginit.io, .{ .robot = parsed.value.robot, .blobs = result });
 }

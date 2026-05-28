@@ -19,10 +19,14 @@ pub const Vec2 = struct {
         return .{ .x = self.y, .y = -self.x };
     }
 
-    pub fn plus(self: Vec2, other: Vec2) !Vec2 {
+    pub fn plus(self: Vec2, other: Vec2) Vec2 {
         return Vec2{
             .x = self.x + other.x,
             .y = self.y + other.y,
         };
     }
+};
+
+pub const Blob = struct {
+    point: []Point2,
 };

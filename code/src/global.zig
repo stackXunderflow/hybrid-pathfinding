@@ -57,36 +57,40 @@ pub fn andrewAlgorithm(allocator: Allocator, mesh: Mesh) !Mesh {
     return .{ .points = result };
 }
 
-pub fn increaseArea(allocator: Allocator, mesh: Mesh, robotRadius: f32) !Mesh {
-    const points = mesh.points;
+// pub fn increaseArea(allocator: Allocator, mesh: Mesh, robotRadius: f32) !Mesh {
+//     const points = mesh.points;
 
-    var biggerHull = try allocator.alloc(Point2, points.len);
+//     var biggerHull = try allocator.alloc(Point2, points.len);
 
-    for (points, 0..) |_, index| {
-        const next = (index + 1) % points.len;
-        const prev = (index + points.len - 1) % points.len;
+//     for (points, 0..) |_, index| {
+//         const next = (index + 1) % points.len;
+//         const prev = (index + points.len - 1) % points.len;
 
-        const vecB = Vec2{ .x = points[next].x - points[index].x, .y = points[next].y - points[index].y };
-        const vecA = Vec2{ .x = points[index].x - points[prev].x, .y = points[index].y - points[prev].y };
+//         const vecB = Vec2{ .x = points[next].x - points[index].x, .y = points[next].y - points[index].y };
+//         const vecA = Vec2{ .x = points[index].x - points[prev].x, .y = points[index].y - points[prev].y };
 
-        const normalizedA = try vecA.normilize();
-        const normalizedB = try vecB.normilize();
-        const normalB = try normalizedB.rotateRight90();
-        const normalA = try normalizedA.rotateRight90();
+//         const normalizedA = try vecA.normilize();
+//         const normalizedB = try vecB.normilize();
+//         const normalB = try normalizedB.rotateRight90();
+//         const normalA = try normalizedA.rotateRight90();
 
-        const normal = try normalA.plus(normalB);
+//         const normal = try normalA.plus(normalB);
 
-        const vecE = try normal.normilize();
+//         const vecE = try normal.normilize();
 
-        const sinVec = vecE.x * normalA.x + vecE.y * normalA.y;
+//         const sinVec = vecE.x * normalA.x + vecE.y * normalA.y;
 
-        const newPoint = Point2{
-            .x = points[index].x + vecE.x * (robotRadius / sinVec),
-            .y = points[index].y + vecE.y * (robotRadius / sinVec),
-        };
+//         const newPoint = Point2{
+//             .x = points[index].x + vecE.x * (robotRadius / sinVec),
+//             .y = points[index].y + vecE.y * (robotRadius / sinVec),
+//         };
 
-        biggerHull[index] = newPoint;
-    }
+//         biggerHull[index] = newPoint;
+//     }
 
-    return .{ .points = biggerHull };
-}
+//     return .{ .points = biggerHull };
+// }
+
+// pub fn BlobIntersection(allocator: Allocator, blobs: []const Blob) !Mesh {
+
+// }
