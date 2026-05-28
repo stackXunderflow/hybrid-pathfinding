@@ -1,10 +1,20 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
-
+const ArenaAllocator = std.heap.ArenaAllocator;
 const common = @import("common.zig");
 const Mesh = common.Mesh;
 const Point2 = common.Point2;
 const Vec2 = common.Vec2;
+
+pub const GlobalGeometry = struct {
+    arena: ArenaAllocator,
+    blobs: []const BlobContent,
+};
+
+pub const BlobContent = struct {
+    blob: Mesh,
+    meshs: []const Mesh,
+};
 
 fn pointLessThan(_: void, a: Point2, b: Point2) bool {
     if (a.x != b.x) return a.x < b.x;
@@ -15,7 +25,7 @@ fn orientation(a: Point2, b: Point2, c: Point2) f32 {
     return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
 }
 
-pub fn andrewAlgorithm(allocator: Allocator, mesh: Mesh) !Mesh {
+fn andrewAlgorithm(allocator: Allocator, mesh: Mesh) !Mesh {
     const points = try allocator.dupe(Point2, mesh.points);
     if (points.len < 3) {
         @panic("У меша меньше трех точек! Нельзя построить выпуклую оболочку");
@@ -24,7 +34,6 @@ pub fn andrewAlgorithm(allocator: Allocator, mesh: Mesh) !Mesh {
     std.mem.sort(Point2, points, {}, pointLessThan);
 
     var hull: std.ArrayList(Point2) = .empty;
-    defer hull.deinit(allocator);
 
     for (points) |p| {
         while (hull.items.len >= 2 and
@@ -51,46 +60,61 @@ pub fn andrewAlgorithm(allocator: Allocator, mesh: Mesh) !Mesh {
 
     _ = hull.pop();
 
-    const result = try allocator.alloc(Point2, hull.items.len);
-    @memcpy(result, hull.items);
-
-    return .{ .points = result };
+    return .{ .points = try hull.toOwnedSlice(allocator) };
 }
 
-// pub fn increaseArea(allocator: Allocator, mesh: Mesh, robotRadius: f32) !Mesh {
-//     const points = mesh.points;
+fn increaseArea(allocator: Allocator, mesh: Mesh, robotRadius: f32) !Mesh {
+    const increaseLen = robotRadius * common.constants.GLOBAL_GEOMETRY_HULL_DELTA;
+    const points = mesh.points;
 
-//     var biggerHull = try allocator.alloc(Point2, points.len);
+    var biggerHull = try allocator.alloc(Point2, points.len);
 
-//     for (points, 0..) |_, index| {
-//         const next = (index + 1) % points.len;
-//         const prev = (index + points.len - 1) % points.len;
+    for (points, 0..) |_, index| {
+        const next = (index + 1) % points.len;
+        const prev = (index + points.len - 1) % points.len;
 
-//         const vecB = Vec2{ .x = points[next].x - points[index].x, .y = points[next].y - points[index].y };
-//         const vecA = Vec2{ .x = points[index].x - points[prev].x, .y = points[index].y - points[prev].y };
+        const vecB = Vec2{ .x = points[next].x - points[index].x, .y = points[next].y - points[index].y };
+        const vecA = Vec2{ .x = points[index].x - points[prev].x, .y = points[index].y - points[prev].y };
 
-//         const normalizedA = try vecA.normilize();
-//         const normalizedB = try vecB.normilize();
-//         const normalB = try normalizedB.rotateRight90();
-//         const normalA = try normalizedA.rotateRight90();
+        const normalizedA = try vecA.normilize();
+        const normalizedB = try vecB.normilize();
+        const normalB = try normalizedB.rotateRight90();
+        const normalA = try normalizedA.rotateRight90();
 
-//         const normal = try normalA.plus(normalB);
+        const normal = normalA.plus(normalB);
 
-//         const vecE = try normal.normilize();
+        const vecE = try normal.normilize();
 
-//         const sinVec = vecE.x * normalA.x + vecE.y * normalA.y;
+        const sinVec = vecE.x * normalA.x + vecE.y * normalA.y;
 
-//         const newPoint = Point2{
-//             .x = points[index].x + vecE.x * (robotRadius / sinVec),
-//             .y = points[index].y + vecE.y * (robotRadius / sinVec),
-//         };
+        const newPoint = Point2{
+            .x = points[index].x + vecE.x * (increaseLen / sinVec),
+            .y = points[index].y + vecE.y * (increaseLen / sinVec),
+        };
 
-//         biggerHull[index] = newPoint;
-//     }
+        biggerHull[index] = newPoint;
+    }
 
-//     return .{ .points = biggerHull };
-// }
+    return .{ .points = biggerHull };
+}
 
-// pub fn BlobIntersection(allocator: Allocator, blobs: []const Blob) !Mesh {
+pub fn globalGeometry(gpa: Allocator, meshs: []const Mesh, robotRadius: f32) !GlobalGeometry {
+    var arena: ArenaAllocator = .init(gpa);
+    const allocator = arena.allocator();
 
-// }
+    var blobs: std.ArrayList(BlobContent) = try .initCapacity(allocator, meshs.len);
+
+    for (meshs) |mesh| {
+        const blob = try andrewAlgorithm(allocator, mesh);
+        const meshsAlloc = try allocator.alloc(Mesh, 1);
+        meshsAlloc[0] = mesh;
+        blobs.appendAssumeCapacity(.{ .blob = blob, .meshs = meshsAlloc });
+    }
+
+    for (blobs.items, 0..) |blob, index| {
+        const biggerBlob = try increaseArea(allocator, blob.blob, robotRadius);
+        blobs.items[index].blob = biggerBlob;
+    }
+
+    return .{ .arena = arena, .blobs = try blobs.toOwnedSlice(allocator) };
+}
