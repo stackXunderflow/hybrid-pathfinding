@@ -5,7 +5,7 @@ const cli = @import("cli");
 const code = @import("code");
 
 const common = @import("common.zig");
-const Point = common.Point;
+const Point = common.Point2;
 const Mesh = common.Mesh;
 const global = @import("global.zig");
 
@@ -76,6 +76,14 @@ fn run() !void {
         meshs[0] = mesh;
         blobs.appendAssumeCapacity(.{ .blob = blob, .meshs = meshs });
     }
+    var new_blobs: std.ArrayList(BlobContent) = try .initCapacity(allocator, blobs.items.len);
+    for (blobs.items) |blob| {
+        const biggerBlob = try global.increaseArea(allocator, blob.blob, parsed.value.robot.radius);
+        allocator.free(blob.blob.points);
+        const meshs = try allocator.alloc(BlobContent, 1);
+        meshs[0] = blob;
+        new_blobs.appendAssumeCapacity(.{ .blob = biggerBlob, .meshs = blob.meshs });
+    }
 
-    try output(ginit.io, .{ .robot = parsed.value.robot, .blobs = blobs.items });
+    try output(ginit.io, .{ .robot = parsed.value.robot, .blobs = new_blobs.items });
 }

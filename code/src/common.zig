@@ -1,5 +1,28 @@
-pub const Point = struct { x: f32, y: f32 };
+const std = @import("std");
+
+pub const Point2 = struct { x: f32, y: f32 };
 
 pub const Mesh = struct {
-    points: []const Point,
+    points: []const Point2,
+};
+
+pub const Vec2 = struct {
+    x: f32,
+    y: f32,
+
+    pub fn normilize(self: Vec2) !Vec2 {
+        const length = std.math.sqrt(self.x * self.x + self.y * self.y);
+        return .{ .x = self.x / length, .y = self.y / length };
+    }
+
+    pub fn rotateLeft90(self: Vec2) !Vec2 {
+        return .{ .x = -self.y, .y = self.x };
+    }
+
+    pub fn plus(self: Vec2, other: Vec2) !Vec2 {
+        return Vec2{
+            .x = self.x + other.x,
+            .y = self.y + other.y,
+        };
+    }
 };
