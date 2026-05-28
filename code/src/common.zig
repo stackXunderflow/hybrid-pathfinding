@@ -15,8 +15,8 @@ pub const Vec2 = struct {
         return .{ .x = self.x / length, .y = self.y / length };
     }
 
-    pub fn rotateLeft90(self: Vec2) !Vec2 {
-        return .{ .x = -self.y, .y = self.x };
+    pub fn rotateRight90(self: Vec2) !Vec2 {
+        return .{ .x = self.y, .y = -self.x };
     }
 
     pub fn plus(self: Vec2, other: Vec2) !Vec2 {

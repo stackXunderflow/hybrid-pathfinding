@@ -71,8 +71,8 @@ pub fn increaseArea(allocator: Allocator, mesh: Mesh, robotRadius: f32) !Mesh {
 
         const normalizedA = try vecA.normilize();
         const normalizedB = try vecB.normilize();
-        const normalB = try normalizedB.rotateLeft90();
-        const normalA = try normalizedA.rotateLeft90();
+        const normalB = try normalizedB.rotateRight90();
+        const normalA = try normalizedA.rotateRight90();
 
         const normal = try normalA.plus(normalB);
 
