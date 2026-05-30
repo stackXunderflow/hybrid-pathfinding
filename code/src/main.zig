@@ -9,6 +9,7 @@ const Point = common.Point2;
 const Mesh = common.Mesh;
 const global = @import("global.zig");
 const BlobContent = global.BlobContent;
+const dbg = @import("dbg.zig");
 
 const Robot = struct { radius: f32, start: Point, end: Point };
 
@@ -31,6 +32,7 @@ pub fn readScene(allocator: Allocator, io: std.Io, path: []const u8) !std.json.P
 const Output = struct {
     robot: Robot,
     blobs: []const BlobContent,
+    debug: ?[]const dbg.DebugLayout,
 };
 
 fn output(io: std.Io, content: Output) !void {
@@ -63,9 +65,12 @@ fn run() !void {
     defer arena.deinit();
     const allocator = arena.allocator();
 
+    var debugger = try dbg.Debugger.init(ginit.gpa);
+    defer debugger.deinit();
+
     const parsed = try readScene(allocator, ginit.io, config.scene_path);
 
     const globalGeometry = try global.globalGeometry(allocator, parsed.value.meshs, parsed.value.robot.radius);
 
-    try output(ginit.io, .{ .robot = parsed.value.robot, .blobs = globalGeometry.blobs });
+    try output(ginit.io, .{ .robot = parsed.value.robot, .blobs = globalGeometry.blobs, .debug = debugger.layouts.items });
 }
