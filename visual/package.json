@@ -15,11 +15,13 @@
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^6.2.4",
     "@types/node": "^25.9.1",
+    "concurrently": "^10.0.0",
     "electron": "^42.3.0",
     "electron-vite": "^5.0.0",
     "svelte": "^5.55.9",
     "typescript": "^6.0.3",
-    "vite": "^7.3.3"
+    "vite": "^7.3.3",
+    "wait-on": "^9.0.10"
   },
   "dependencies": {
     "chokidar": "^5.0.0"

@@ -1,5 +1,7 @@
 const std = @import("std");
 
+pub const F32_EPSILON = 0.000001;
+
 pub const Point2 = struct { x: f32, y: f32 };
 
 pub const Mesh = struct {
@@ -24,6 +26,10 @@ pub const Vec2 = struct {
             .x = self.x + other.x,
             .y = self.y + other.y,
         };
+    }
+
+    pub fn len(self: Vec2) f32 {
+        return std.math.sqrt(self.x * self.x + self.y * self.y);
     }
 };
 
