@@ -315,11 +315,16 @@ fn DSU(gpa: Allocator, blobs: []const BlobContent, pairs: []const Pair) ![]const
             }
         }
 
+        var obstacles: std.ArrayList(Mesh) = .empty;
+        for (entry.value_ptr.items) |blob_index| {
+            try obstacles.appendSlice(gpa, blobs[blob_index].meshs);
+        }
+
         if (points.items.len == 0) continue;
         const mesh = Mesh{ .points = try points.toOwnedSlice(gpa) };
         const blob = try andrewAlgorithm(gpa, mesh);
 
-        try meshs.append(gpa, .{ .blob = blob, .meshs = &.{} });
+        try meshs.append(gpa, .{ .blob = blob, .meshs = try obstacles.toOwnedSlice(gpa) });
     }
     return try meshs.toOwnedSlice(gpa);
 }
