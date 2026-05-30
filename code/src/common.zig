@@ -1,6 +1,9 @@
 const std = @import("std");
 
 pub const F32_EPSILON = 0.000001;
+pub const constants = struct {
+    pub const GLOBAL_GEOMETRY_HULL_DELTA: f32 = 1.05;
+};
 
 pub const Point2 = struct { x: f32, y: f32 };
 
