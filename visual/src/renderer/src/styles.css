@@ -1,0 +1,57 @@
+@import "tailwindcss";
+
+html,
+body,
+#app {
+	margin: 0;
+	width: 100%;
+	height: 100%;
+	overflow: hidden;
+}
+
+body {
+	font-family:
+		Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.material-symbols-outlined {
+	font-size: 18px;
+	font-variation-settings:
+		"FILL" 0,
+		"wght" 450,
+		"GRAD" 0,
+		"opsz" 20;
+	line-height: 1;
+}
+
+.layer-checkbox {
+	position: relative;
+	width: 18px;
+	height: 18px;
+	appearance: none;
+	border: 1.5px solid #0f172a;
+	border-radius: 4px;
+	background: #ffffff;
+	cursor: pointer;
+}
+
+.layer-checkbox:checked {
+	background: #0f172a;
+}
+
+.layer-checkbox:checked::after {
+	position: absolute;
+	left: 4px;
+	top: 1px;
+	width: 6px;
+	height: 10px;
+	border: solid #ffffff;
+	border-width: 0 2px 2px 0;
+	content: "";
+	transform: rotate(45deg);
+}
+
+.layer-checkbox:focus-visible {
+	outline: 2px solid #0f172a;
+	outline-offset: 2px;
+}
