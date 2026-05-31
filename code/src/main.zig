@@ -73,5 +73,27 @@ fn run() !void {
     const globalGeometry = try global.globalGeometry(ginit.gpa, parsed.value.meshs, parsed.value.robot.radius);
     defer globalGeometry.arena.deinit();
 
+    // Проверка: генерация точек внутри AABB каждого Blob
+    {
+        const local_debug = @import("local/debug_points.zig");
+
+        for (globalGeometry.blobs, 0..) |blob, i| {
+            const layer_name = std.fmt.allocPrint(allocator, "blob_{d}_halton", .{i}) catch continue;
+            defer allocator.free(layer_name);
+
+            try local_debug.addHaltonPointsInBlobAABB(
+                ginit.gpa,
+                &debugger,
+                blob,
+                parsed.value.robot.start,
+                parsed.value.robot.end,
+                parsed.value.robot.radius,
+                0.002, // плотность внутри AABB (чуть меньше для комфортной визуализации)
+                42 + @as(u64, i),
+                layer_name,
+            );
+        }
+    }
+    // тут заканчивается
     try output(ginit.io, .{ .robot = parsed.value.robot, .blobs = globalGeometry.blobs, .debug = debugger.layouts.items });
 }
