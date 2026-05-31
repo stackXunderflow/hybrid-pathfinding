@@ -5,6 +5,7 @@ export type {
 	BlobContent,
 	Robot,
 	SceneOutput,
+	BinaryRunResult,
 	DebugLayout,
 	DebugItem,
 	DebugTriangulation,

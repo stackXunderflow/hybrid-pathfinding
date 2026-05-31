@@ -3,7 +3,7 @@ import { execFile } from 'node:child_process';
 import { readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { watch } from 'chokidar';
-import type { SceneInput, SceneOutput } from '../shared/types';
+import type { BinaryRunResult, SceneInput, SceneOutput } from '../shared/types';
 
 const __dirname = import.meta.dirname;
 
@@ -19,11 +19,22 @@ const defaultScenePath = (() => {
 	return resolve(visualDir, p);
 })();
 
-function execBinary(scenePath: string): Promise<string> {
-	return new Promise((resolve, reject) => {
-		execFile(binaryPath, ['--scene', scenePath], (err, stdout) => {
-			if (err) reject(err);
-			else resolve(stdout);
+function execBinary(scenePath: string): Promise<BinaryRunResult> {
+	return new Promise((resolve) => {
+		execFile(binaryPath, ['--scene', scenePath], (err, stdout, stderr) => {
+			let output: SceneOutput | null = null;
+			let parseError: string | null = null;
+			try {
+				output = JSON.parse(stdout) as SceneOutput;
+			} catch (e) {
+				parseError = e instanceof Error ? e.message : String(e);
+			}
+			resolve({
+				stdout,
+				stderr,
+				output,
+				error: err ? err.message : parseError,
+			});
 		});
 	});
 }
@@ -76,8 +87,7 @@ ipcMain.handle('save-scene-file-as', async (_event, scene: SceneInput, suggested
 
 ipcMain.handle('run-binary', async (_event, scenePath?: string) => {
 	const path = scenePath || defaultScenePath;
-	const stdout = await execBinary(path);
-	return JSON.parse(stdout) as SceneOutput;
+	return await execBinary(path);
 });
 
 const createWindow = () => {

@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import type { SceneInput, SceneOutput } from '../shared/types';
+import type { BinaryRunResult, SceneInput } from '../shared/types';
 
 contextBridge.exposeInMainWorld('electronAPI', {
 	platform: process.platform,
@@ -13,7 +13,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 	saveSceneFileAs: (scene: SceneInput, suggestedPath?: string) =>
 		ipcRenderer.invoke('save-scene-file-as', scene, suggestedPath) as Promise<{ path: string } | null>,
 	runBinary: (scenePath?: string) =>
-		ipcRenderer.invoke('run-binary', scenePath) as Promise<SceneOutput>,
+		ipcRenderer.invoke('run-binary', scenePath) as Promise<BinaryRunResult>,
 	onBinaryChanged: (callback: () => void) => {
 		ipcRenderer.on('binary-changed', () => callback());
 	},

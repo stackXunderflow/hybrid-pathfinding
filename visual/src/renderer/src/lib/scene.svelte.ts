@@ -1,12 +1,25 @@
 import { writable } from 'svelte/store';
 import type { SceneInput, SceneOutput } from '@/types';
 
+export type RunLogs = {
+	stdout: string;
+	stderr: string;
+	ranAt: number | null;
+	error: string | null;
+};
+
 export const sceneInput = writable<SceneInput | null>(null);
 export const sceneOutput = writable<SceneOutput | null>(null);
 export const activeScenePath = writable<string | null>(null);
 export const loading = writable(false);
 export const error = writable<string | null>(null);
 export const dirty = writable(false);
+export const runLogs = writable<RunLogs>({
+	stdout: '',
+	stderr: '',
+	ranAt: null,
+	error: null,
+});
 
 let currentPath: string | null = null;
 let currentInput: SceneInput | null = null;
@@ -46,7 +59,14 @@ export async function runBinary() {
 	error.set(null);
 	try {
 		const result = await window.electronAPI!.runBinary(currentPath ?? undefined);
-		sceneOutput.set(result);
+		runLogs.set({
+			stdout: result.stdout,
+			stderr: result.stderr,
+			ranAt: Date.now(),
+			error: result.error,
+		});
+		sceneOutput.set(result.output);
+		if (result.error) error.set(result.error);
 	} catch (e) {
 		error.set(e instanceof Error ? e.message : String(e));
 		sceneOutput.set(null);

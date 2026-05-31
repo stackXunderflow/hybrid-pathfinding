@@ -29,6 +29,13 @@ export interface SceneOutput {
 	debug?: DebugLayout[] | null;
 }
 
+export interface BinaryRunResult {
+	stdout: string;
+	stderr: string;
+	output: SceneOutput | null;
+	error: string | null;
+}
+
 export interface DebugLayout {
 	name: string;
 	content: DebugItem[];

@@ -10,6 +10,7 @@
 		loading,
 		openScene,
 		runBinary,
+		runLogs,
 		saveScene,
 		saveSceneAs,
 		sceneInput,
@@ -21,6 +22,8 @@
 
 	let tool = $state<Tool>('select');
 	let helpOpen = $state(false);
+	let logViewer = $state<'stdout' | 'stderr' | null>(null);
+	let copied = $state(false);
 	let layers = $state({
 		obstacles: true,
 		robot: true,
@@ -63,6 +66,32 @@
 		return path.slice(0, Math.max(0, path.length - name.length));
 	}
 
+	function prettyStdout(stdout: string) {
+		if (!stdout.trim()) return '';
+		try {
+			return JSON.stringify(JSON.parse(stdout), null, 2);
+		} catch {
+			return stdout;
+		}
+	}
+
+	function logText(kind: 'stdout' | 'stderr') {
+		return kind === 'stdout' ? prettyStdout($runLogs.stdout) : $runLogs.stderr;
+	}
+
+	function logTitle(kind: 'stdout' | 'stderr') {
+		return kind === 'stdout' ? 'stdout JSON' : 'stderr logs';
+	}
+
+	function logSize(text: string) {
+		return `${new Blob([text]).size} B`;
+	}
+
+	function runTimeLabel(value: number | null) {
+		if (!value) return 'never';
+		return new Date(value).toLocaleTimeString();
+	}
+
 	function toggleLayer(name: keyof Omit<typeof layers, 'debugLayouts'>) {
 		layers = { ...layers, [name]: !layers[name] };
 	}
@@ -88,6 +117,15 @@
 			void saveScene();
 		}
 		if (event.code === 'Escape') helpOpen = false;
+		if (event.code === 'Escape') logViewer = null;
+	}
+
+	async function copyLog(kind: 'stdout' | 'stderr') {
+		await navigator.clipboard.writeText(logText(kind));
+		copied = true;
+		window.setTimeout(() => {
+			copied = false;
+		}, 1200);
 	}
 
 	$effect(() => {
@@ -127,6 +165,22 @@
 		</button>
 		<button class="rounded bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-700" onclick={runBinary} disabled={!$activeScenePath}>
 			Run
+		</button>
+		<button
+			class="rounded border border-slate-200 px-3 py-1.5 text-xs font-medium hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+			onclick={() => (logViewer = 'stdout')}
+			disabled={!$runLogs.stdout}
+			title="Show stdout"
+		>
+			stdout
+		</button>
+		<button
+			class={`rounded border px-3 py-1.5 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-40 ${$runLogs.stderr ? 'border-red-300 bg-red-50 text-red-700 hover:bg-red-100' : 'border-slate-200 hover:bg-slate-50'}`}
+			onclick={() => (logViewer = 'stderr')}
+			disabled={!$runLogs.stderr}
+			title="Show stderr"
+		>
+			stderr
 		</button>
 
 		<div class="ml-3 min-w-0 flex-1 truncate rounded border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-500" title={$activeScenePath ?? ''}>
@@ -318,6 +372,39 @@
 					<div class="border-t border-slate-200 pt-3 text-xs text-slate-500">
 						Ctrl+S saves the active scene. F fits the scene in the viewport. Convex hulls are shown as dashed contours.
 					</div>
+				</div>
+			</section>
+		</div>
+	{/if}
+
+	{#if logViewer}
+		{@const text = logText(logViewer)}
+		<div class="fixed inset-0 z-50 grid place-items-center bg-slate-950/35 p-6" role="presentation" onclick={() => (logViewer = null)}>
+			<section
+				class="grid h-[78vh] w-full max-w-5xl grid-rows-[52px_1fr] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl"
+				role="dialog"
+				aria-modal="true"
+				tabindex="-1"
+				onclick={(event) => event.stopPropagation()}
+				onkeydown={(event) => event.stopPropagation()}
+			>
+				<header class="flex items-center gap-3 border-b border-slate-200 px-4 py-3">
+					<div class="text-sm font-semibold text-slate-950">{logTitle(logViewer)}</div>
+					<div class="text-xs text-slate-500">last run: {runTimeLabel($runLogs.ranAt)}</div>
+					<div class="text-xs text-slate-500">{logSize(text)}</div>
+					{#if logViewer === 'stdout' && $runLogs.error}
+						<div class="rounded bg-red-50 px-2 py-1 text-xs font-medium text-red-700">parse/run error</div>
+					{/if}
+					<div class="flex-1"></div>
+					<button class="rounded border border-slate-200 px-3 py-1.5 text-xs font-medium hover:bg-slate-50" onclick={() => copyLog(logViewer)}>
+						{copied ? 'Copied' : 'Copy'}
+					</button>
+					<button class="grid h-8 w-8 place-items-center rounded hover:bg-slate-100" onclick={() => (logViewer = null)} title="Close">
+						<span class="material-symbols-outlined">close</span>
+					</button>
+				</header>
+				<div class="min-h-0 overflow-auto bg-slate-950 p-4">
+					<pre class="whitespace-pre-wrap break-words font-mono text-xs leading-5 text-slate-100">{text || 'empty'}</pre>
 				</div>
 			</section>
 		</div>
