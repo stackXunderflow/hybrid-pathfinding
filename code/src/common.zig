@@ -73,4 +73,16 @@ pub const Blob = struct {
     pub fn fromPoints(points: []const Point2) Blob {
         return .{ .points = points, .aabb = .fromPoints(points) };
     }
+
+    pub fn containsPoint(self: Blob, point: Point2) bool {
+        for (0..self.points.len, 1..) |a, b| {
+            const start = self.points[a];
+            const end = self.points[b % self.points.len];
+            const d = (end.x - start.x) * (point.y - start.y) - (end.y - start.y) * (point.x - start.x);
+            if (d <= 0) {
+                return false;
+            }
+        }
+        return true;
+    }
 };

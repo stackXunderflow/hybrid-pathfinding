@@ -66,9 +66,11 @@ pub fn addHaltonPointsInBlobAABB(
         const px = min_x + tx * w;
         const py = min_y + ty * h;
 
-        try debugger.point(
-            .{ .x = px, .y = py },
-            .{ .layout = layer_name },
-        );
+        if (blob.blob.containsPoint(.{ .x = px, .y = py })) {
+            try debugger.point(
+                .{ .x = px, .y = py },
+                .{ .layout = layer_name },
+            );
+        }
     }
 }
