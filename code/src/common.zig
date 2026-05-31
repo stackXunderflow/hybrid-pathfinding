@@ -64,6 +64,12 @@ pub const AABB = struct {
 
 pub const Mesh = struct {
     points: []const Point2,
+
+    // fn containsPoint(self: Mesh, point: Point2) bool {
+
+    //Тут должна быть реализация проверки на наличие точки, сделаю позже
+
+    // }
 };
 
 pub const Blob = struct {
@@ -72,5 +78,17 @@ pub const Blob = struct {
 
     pub fn fromPoints(points: []const Point2) Blob {
         return .{ .points = points, .aabb = .fromPoints(points) };
+    }
+
+    pub fn containsPoint(self: Blob, point: Point2) bool {
+        for (0..self.points.len, 1..) |a, b| {
+            const start = self.points[a];
+            const end = self.points[b];
+            const d = (end.x - start.x) * (point.y - start.y) - (end.y - start.y) * (point.x - start.x);
+            if (d > 0) {
+                return false;
+            }
+        }
+        return true;
     }
 };
