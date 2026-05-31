@@ -21,14 +21,6 @@ pub fn findPath(gpa: Allocator, debugger: *Debugger, robot: Robot, blobs_content
     const direction = try vec.normilize();
     const length = vec.len();
 
-    for (blobs_content) |blob| {
-        const aabb = blob.blob.aabb;
-        try debugger.line(.{ .x = aabb.Xmin, .y = aabb.Ymin }, .{ .x = aabb.Xmax, .y = aabb.Ymin }, .{ .layout = "pf AABB" });
-        try debugger.line(.{ .x = aabb.Xmax, .y = aabb.Ymin }, .{ .x = aabb.Xmax, .y = aabb.Ymax }, .{ .layout = "pf AABB" });
-        try debugger.line(.{ .x = aabb.Xmax, .y = aabb.Ymax }, .{ .x = aabb.Xmin, .y = aabb.Ymax }, .{ .layout = "pf AABB" });
-        try debugger.line(.{ .x = aabb.Xmin, .y = aabb.Ymax }, .{ .x = aabb.Xmin, .y = aabb.Ymin }, .{ .layout = "pf AABB" });
-    }
-
     const intersections = try hullIntersections(allocator, debugger, origin, direction, length, blobs_content);
     defer allocator.free(intersections);
 
@@ -36,7 +28,7 @@ pub fn findPath(gpa: Allocator, debugger: *Debugger, robot: Robot, blobs_content
     defer gpa.free(path);
 
     for (path[0 .. path.len - 1], path[1..]) |from, to| {
-        try debugger.line(from, to, .{});
+        try debugger.line(from, to, .{ .layout = "pathfinding" });
     }
 }
 
