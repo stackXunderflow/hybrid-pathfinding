@@ -5,13 +5,13 @@ const cli = @import("cli");
 const code = @import("code");
 
 const common = @import("common.zig");
+const Robot = common.Robot;
 const Point = common.Point2;
 const Mesh = common.Mesh;
 const dbg = @import("dbg.zig");
 const global = @import("global.zig");
 const BlobContent = global.BlobContent;
-
-const Robot = struct { radius: f32, start: Point, end: Point };
+const pathfinding = @import("pathfinding.zig");
 
 const SceneJson = struct {
     robot: Robot,
@@ -72,6 +72,8 @@ fn run() !void {
 
     const globalGeometry = try global.globalGeometry(ginit.gpa, parsed.value.meshs, parsed.value.robot.radius);
     defer globalGeometry.arena.deinit();
+
+    try pathfinding.findPath(ginit.gpa, &debugger, parsed.value.robot, globalGeometry.blobs);
 
     try output(ginit.io, .{ .robot = parsed.value.robot, .blobs = globalGeometry.blobs, .debug = debugger.layouts.items });
 }

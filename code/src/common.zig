@@ -5,12 +5,22 @@ pub const constants = struct {
     pub const F32_EPSILON = 0.000001;
 };
 
+pub const Robot = struct { radius: f32, start: Point2, end: Point2 };
+
 pub const Point2 = struct {
     x: f32,
     y: f32,
 
     pub fn vecTo(from: Point2, to: Point2) Vec2 {
         return .{ .x = to.x - from.x, .y = to.y - from.y };
+    }
+
+    pub fn plus(self: Point2, vec: Vec2) Point2 {
+        return .{ .x = self.x + vec.x, .y = self.y + vec.y };
+    }
+
+    pub fn magnitude(self: Point2, other: Point2) f32 {
+        return self.vecTo(other).len();
     }
 };
 
@@ -32,6 +42,14 @@ pub const Vec2 = struct {
             .x = self.x + other.x,
             .y = self.y + other.y,
         };
+    }
+
+    pub fn scale(self: Vec2, mul: f32) Vec2 {
+        return .{ .x = self.x * mul, .y = self.y * mul };
+    }
+
+    pub fn scalarProduct(self: Vec2, other: Vec2) f32 {
+        return self.x * other.x + self.y * other.y;
     }
 
     pub fn len(self: Vec2) f32 {
