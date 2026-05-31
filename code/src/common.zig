@@ -85,7 +85,7 @@ pub const Blob = struct {
             const start = self.points[a];
             const end = self.points[b % self.points.len];
             const d = (end.x - start.x) * (point.y - start.y) - (end.y - start.y) * (point.x - start.x);
-            if (d <= 0) {
+            if (d < 0) {
                 return false;
             }
         }
