@@ -163,8 +163,10 @@
 		const color = meshColors[(index + 4) % meshColors.length];
 		ctx.setLineDash([]);
 		if (item.type === 'point') {
-			drawPoint(item.point, 4, color, true);
-			drawLabel(item.label, item.point, color);
+			// Для точек всегда используем чёрный цвет, чтобы не было радуги
+			const pointColor = '#111827';
+			drawPoint(item.point, 4, pointColor, true);
+			drawLabel(item.label, item.point, pointColor);
 		} else if (item.type === 'mesh') {
 			ctx.setLineDash(item.dashed ? [8, 6] : []);
 			drawPolyline(item.points, true);
