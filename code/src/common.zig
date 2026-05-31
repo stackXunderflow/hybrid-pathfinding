@@ -1,14 +1,17 @@
 const std = @import("std");
 
-pub const F32_EPSILON = 0.000001;
 pub const constants = struct {
     pub const GLOBAL_GEOMETRY_HULL_DELTA: f32 = 1.05;
+    pub const F32_EPSILON = 0.000001;
 };
 
-pub const Point2 = struct { x: f32, y: f32 };
+pub const Point2 = struct {
+    x: f32,
+    y: f32,
 
-pub const Mesh = struct {
-    points: []const Point2,
+    pub fn vecTo(from: Point2, to: Point2) Vec2 {
+        return .{ .x = to.x - from.x, .y = to.y - from.y };
+    }
 };
 
 pub const Vec2 = struct {
@@ -36,6 +39,38 @@ pub const Vec2 = struct {
     }
 };
 
+pub const AABB = struct {
+    Xmin: f32,
+    Ymin: f32,
+    Xmax: f32,
+    Ymax: f32,
+
+    pub fn fromPoints(points: []const Point2) AABB {
+        var max_y: f32 = points[0].y;
+        var min_y: f32 = points[0].y;
+        var max_x: f32 = points[0].x;
+        var min_x: f32 = points[0].x;
+
+        for (points[1..]) |point| {
+            max_x = @max(max_x, point.x);
+            min_x = @min(min_x, point.x);
+            max_y = @max(max_y, point.y);
+            min_y = @min(min_y, point.y);
+        }
+
+        return .{ .Xmin = min_x, .Ymin = min_y, .Xmax = max_x, .Ymax = max_y };
+    }
+};
+
+pub const Mesh = struct {
+    points: []const Point2,
+};
+
 pub const Blob = struct {
-    point: []Point2,
+    points: []const Point2,
+    aabb: AABB,
+
+    pub fn fromPoints(points: []const Point2) Blob {
+        return .{ .points = points, .aabb = .fromPoints(points) };
+    }
 };

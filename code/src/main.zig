@@ -7,9 +7,9 @@ const code = @import("code");
 const common = @import("common.zig");
 const Point = common.Point2;
 const Mesh = common.Mesh;
+const dbg = @import("dbg.zig");
 const global = @import("global.zig");
 const BlobContent = global.BlobContent;
-const dbg = @import("dbg.zig");
 
 const Robot = struct { radius: f32, start: Point, end: Point };
 
@@ -70,7 +70,8 @@ fn run() !void {
 
     const parsed = try readScene(allocator, ginit.io, config.scene_path);
 
-    const globalGeometry = try global.globalGeometry(allocator, parsed.value.meshs, parsed.value.robot.radius);
+    const globalGeometry = try global.globalGeometry(ginit.gpa, parsed.value.meshs, parsed.value.robot.radius);
+    defer globalGeometry.arena.deinit();
 
     try output(ginit.io, .{ .robot = parsed.value.robot, .blobs = globalGeometry.blobs, .debug = debugger.layouts.items });
 }
