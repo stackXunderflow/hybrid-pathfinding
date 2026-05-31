@@ -21,7 +21,7 @@ const defaultScenePath = (() => {
 
 function execBinary(scenePath: string): Promise<BinaryRunResult> {
 	return new Promise((resolve) => {
-		execFile(binaryPath, ['--scene', scenePath], (err, stdout, stderr) => {
+		execFile(binaryPath, ['--scene', scenePath], { maxBuffer: 10 * 1024 * 1024 }, (err, stdout, stderr) => {
 			let output: SceneOutput | null = null;
 			let parseError: string | null = null;
 			try {

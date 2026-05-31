@@ -39,7 +39,7 @@ fn output(io: std.Io, content: Output) !void {
     var buffer: [1024]u8 = undefined;
     var stdout = std.Io.File.stdout();
     var writer = stdout.writer(io, &buffer);
-    var stringify = std.json.Stringify{ .writer = &writer.interface, .options = .{ .whitespace = .indent_4 } };
+    var stringify = std.json.Stringify{ .writer = &writer.interface, .options = .{ .whitespace = .indent_4, .emit_null_optional_fields = false } };
     try stringify.write(content);
     try writer.flush();
 }
