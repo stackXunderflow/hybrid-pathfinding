@@ -6,12 +6,13 @@ const common = @import("common.zig");
 const Point2 = common.Point2;
 const Vec2 = common.Vec2;
 const Robot = common.Robot;
+const Blob = common.Blob;
+const AABB = common.AABB;
+const F32_EPSILON = common.constants.F32_EPSILON;
 const dbg = @import("dbg.zig");
 const Debugger = dbg.Debugger;
 const global = @import("global.zig");
 const BlobContent = global.BlobContent;
-const Blob = common.Blob;
-const AABB = common.AABB;
 
 pub fn findPath(gpa: Allocator, debugger: *Debugger, robot: Robot, blobs_content: []const BlobContent) !void {
     var arena: ArenaAllocator = .init(gpa);
@@ -25,12 +26,50 @@ pub fn findPath(gpa: Allocator, debugger: *Debugger, robot: Robot, blobs_content
     const intersections = try hullIntersections(allocator, debugger, origin, direction, length, blobs_content);
     defer allocator.free(intersections);
 
-    const path = try buildPath(gpa, origin, direction, robot.end, intersections);
-    defer gpa.free(path);
+    const path = try buildPath(allocator, origin, direction, robot.end, intersections);
+    defer allocator.free(path);
 
     for (path[0 .. path.len - 1], path[1..]) |from, to| {
-        try debugger.line(from, to, .{ .layout = "pathfinding" });
+        try debugger.line(from, to, .{ .layout = "global naive pf" });
     }
+
+    const simplified = try simplifyNaivePath(allocator, debugger, path, blobs_content);
+    defer allocator.free(simplified);
+
+    for (simplified[0 .. simplified.len - 1], simplified[1..]) |from, to| {
+        try debugger.line(from, to, .{ .layout = "global simplified pf" });
+    }
+}
+
+fn simplifyNaivePath(gpa: Allocator, debugger: *Debugger, path: []const Point2, blobs_content: []const BlobContent) ![]const Point2 {
+    var simplified: std.ArrayList(Point2) = .fromOwnedSlice(try gpa.dupe(Point2, path));
+
+    blk: while (true) {
+        const total = simplified.items.len;
+        if (total <= 3) {
+            break;
+        }
+        for (0..total - 2, 2..) |near, far| {
+            const near_point = simplified.items[near];
+            const far_point = simplified.items[far];
+
+            const vec = near_point.vecTo(far_point);
+            const length = vec.len();
+            const direction = try vec.normilize();
+
+            const intersections = try hullIntersections(gpa, debugger, near_point, direction, length - 1, blobs_content);
+            defer gpa.free(intersections);
+
+            if (intersections.len == 0 or (intersections.len == 1 and std.math.approxEqAbs(f32, intersections[0].in.t, intersections[0].out.t, F32_EPSILON))) {
+                _ = simplified.orderedRemove(near + 1);
+                continue :blk;
+            }
+        }
+
+        break;
+    }
+
+    return try simplified.toOwnedSlice(gpa);
 }
 
 fn buildPath(gpa: Allocator, origin: Point2, direction: Vec2, end: Point2, intersections: []const HullIntersection) ![]const Point2 {
