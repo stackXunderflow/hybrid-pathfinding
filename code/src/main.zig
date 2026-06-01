@@ -89,8 +89,8 @@ fn run() !void {
                 parsed.value.robot.start,
                 parsed.value.robot.end,
                 parsed.value.robot.radius,
-                0.002,
-                42 + @as(u64, i),
+                0.001,
+                42,
                 layer_name,
             );
         }
