@@ -15,6 +15,7 @@ const AABB = common.AABB;
 
 pub fn findPath(gpa: Allocator, debugger: *Debugger, robot: Robot, blobs_content: []const BlobContent) !void {
     var arena: ArenaAllocator = .init(gpa);
+    defer arena.deinit();
     const allocator = arena.allocator();
     const origin = robot.start;
     const vec = origin.vecTo(robot.end);
