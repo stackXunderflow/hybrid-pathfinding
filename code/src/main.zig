@@ -97,3 +97,7 @@ fn run() !void {
     }
     try output(ginit.io, .{ .robot = parsed.value.robot, .blobs = globalGeometry.blobs, .debug = debugger.layouts.items });
 }
+
+test {
+    _ = @import("dbg.zig");
+}

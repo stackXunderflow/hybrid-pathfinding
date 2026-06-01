@@ -49,7 +49,14 @@ pub const Debugger = struct {
 
     fn append_item(self: *Debugger, item: DebugItem, layout_name: ?str) !void {
         const layout: *DebugLayout = try self.find_or_create_layout(layout_name);
-        try layout.content.append(self.arena.allocator(), item);
+        const allocator = self.arena.allocator();
+
+        var clone = item;
+        if (clone.label) |label| {
+            clone.label = try allocator.dupe(u8, label);
+        }
+
+        try layout.content.append(allocator, clone);
     }
 
     fn find_or_create_layout(self: *Debugger, nullable_layout_name: ?str) !*DebugLayout {
@@ -84,7 +91,7 @@ pub const Debugger = struct {
 
 test "dbg" {
     const testing = std.testing;
-    var debugger: Debugger = .init(testing.allocator);
+    var debugger = try Debugger.init(testing.allocator);
     defer debugger.deinit();
 
     try debugger.point(.{ .x = 50, .y = -50.0 }, .{ .layout = "ВАЖНЫЕ ТОЧКИ", .label = "Я ВАЖНАЯ ТОЧКА" });
@@ -93,9 +100,31 @@ test "dbg" {
     // Без слоя и без имени
     try debugger.line(.{ .x = 500, .y = -100 }, .{ .x = 666, .y = 666 }, .{});
 
-    testing.expectEqual(2, debugger.layouts.items.len);
-    testing.expectEqualStrings("default layer", debugger.layouts.items[0].name);
-    testing.expectEqualStrings("ВАЖНЫЕ ТОЧКИ", debugger.layouts.items[1].name);
-    testing.expectEqual(2, debugger.layouts.items[0]);
-    testing.expectEqual(1, debugger.layouts.items[1]);
+    try testing.expectEqual(2, debugger.layouts.items.len);
+    try testing.expectEqualStrings("default layer", debugger.layouts.items[0].name);
+    try testing.expectEqualStrings("ВАЖНЫЕ ТОЧКИ", debugger.layouts.items[1].name);
+    try testing.expectEqual(2, debugger.layouts.items[0].content.items.len);
+    try testing.expectEqual(1, debugger.layouts.items[1].content.items.len);
+}
+
+test "copy label" {
+    const testing = std.testing;
+    var debugger = try Debugger.init(testing.allocator);
+    defer debugger.deinit();
+
+    {
+        const str1 = try std.fmt.allocPrint(testing.allocator, "abc", .{});
+        const str2 = try std.fmt.allocPrint(testing.allocator, "def", .{});
+
+        const zero: Point2 = .{ .x = 0, .y = 0 };
+        try debugger.point(zero, .{ .label = str1 });
+        try debugger.line(zero, zero, .{ .label = str2 });
+
+        testing.allocator.free(str1);
+        testing.allocator.free(str2);
+    }
+
+    const layer = debugger.layouts.items[0].content.items;
+    try testing.expectEqualStrings("abc", layer[0].label.?);
+    try testing.expectEqualStrings("def", layer[1].label.?);
 }
