@@ -100,4 +100,5 @@ fn run() !void {
 
 test {
     _ = @import("dbg.zig");
+    _ = @import("common.zig");
 }

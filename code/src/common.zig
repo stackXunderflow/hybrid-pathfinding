@@ -78,7 +78,23 @@ pub const AABB = struct {
 
         return .{ .Xmin = min_x, .Ymin = min_y, .Xmax = max_x, .Ymax = max_y };
     }
+
+    pub fn width(self: AABB) f32 {
+        return self.Xmax - self.Xmin;
+    }
+
+    pub fn height(self: AABB) f32 {
+        return self.Ymax - self.Ymin;
+    }
 };
+
+test "AABB sides size" {
+    const testing = std.testing;
+    const aabb: AABB = .{ .Xmax = 7, .Ymax = 2, .Xmin = -2, .Ymin = -3 };
+
+    try testing.expectEqual(9, aabb.width());
+    try testing.expectEqual(5, aabb.height());
+}
 
 pub const Mesh = struct {
     points: []const Point2,
