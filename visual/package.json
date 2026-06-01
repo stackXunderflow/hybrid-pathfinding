@@ -8,9 +8,12 @@
   "main": "./out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
+    "dev:web": "vite --config vite.config.web.ts",
     "build": "electron-vite build",
+    "build:web": "vite build --config vite.config.web.ts && mv dist-web/index.web.html dist-web/index.html",
     "preview": "electron-vite preview",
-    "start": "electron-vite dev"
+    "start": "electron-vite dev",
+    "preview:web": "vite preview --config vite.config.web.ts"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^6.2.4",

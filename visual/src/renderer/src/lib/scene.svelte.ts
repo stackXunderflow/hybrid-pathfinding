@@ -1,5 +1,6 @@
 import { writable } from 'svelte/store';
 import type { SceneInput, SceneOutput } from '@/types';
+import * as api from './api';
 
 export type RunLogs = {
 	stdout: string;
@@ -40,7 +41,7 @@ export async function loadDefaultScene() {
 	loading.set(true);
 	error.set(null);
 	try {
-		const result = await window.electronAPI!.loadSceneFile();
+		const result = await api.loadScene();
 		activeScenePath.set(result.path);
 		sceneInput.set(result.scene);
 		dirty.set(false);
@@ -55,10 +56,11 @@ export async function loadDefaultScene() {
 }
 
 export async function runBinary() {
+	if (!currentInput) return;
 	loading.set(true);
 	error.set(null);
 	try {
-		const result = await window.electronAPI!.runBinary(currentPath ?? undefined);
+		const result = await api.runBinary(currentPath, currentInput);
 		runLogs.set({
 			stdout: result.stdout,
 			stderr: result.stderr,
@@ -79,7 +81,7 @@ export async function openScene() {
 	loading.set(true);
 	error.set(null);
 	try {
-		const result = await window.electronAPI!.openSceneFile();
+		const result = await api.openSceneFile();
 		if (!result) return;
 		activeScenePath.set(result.path);
 		sceneInput.set(result.scene);
@@ -98,9 +100,9 @@ export async function saveScene() {
 	error.set(null);
 	try {
 		if (currentPath) {
-			await window.electronAPI!.saveSceneFile(currentPath, currentInput);
+			await api.saveSceneFile(currentPath, currentInput);
 		} else {
-			const result = await window.electronAPI!.saveSceneFileAs(currentInput, currentPath ?? undefined);
+			const result = await api.saveSceneFileAs(currentInput, currentPath ?? undefined);
 			if (!result) return;
 			activeScenePath.set(result.path);
 		}
@@ -118,7 +120,7 @@ export async function saveSceneAs() {
 	loading.set(true);
 	error.set(null);
 	try {
-		const result = await window.electronAPI!.saveSceneFileAs(currentInput, currentPath ?? undefined);
+		const result = await api.saveSceneFileAs(currentInput, currentPath ?? undefined);
 		if (!result) return;
 		activeScenePath.set(result.path);
 		dirty.set(false);
@@ -139,7 +141,7 @@ export function updateScene(updater: (scene: SceneInput) => void) {
 }
 
 export function initSceneWatch() {
-	window.electronAPI?.onBinaryChanged(() => {
+	api.initSceneWatch(() => {
 		runBinary();
 	});
 }
