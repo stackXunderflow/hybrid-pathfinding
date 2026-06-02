@@ -7,7 +7,8 @@ const Point2 = common.Point2;
 pub fn increaseArea(allocator: Allocator, points: []const Point2, robotRadius: f32) ![]const Point2 {
     const increaseLen = robotRadius * common.constants.GLOBAL_GEOMETRY_HULL_DELTA;
 
-    var biggerHull = try allocator.alloc(Point2, points.len);
+    var biggerHull: std.ArrayList(Point2) = .empty;
+    errdefer biggerHull.deinit(allocator);
 
     for (points, 0..) |_, index| {
         const next = (index + 1) % points.len;
@@ -24,16 +25,28 @@ pub fn increaseArea(allocator: Allocator, points: []const Point2, robotRadius: f
         const normal = normalA.plus(normalB);
 
         const vecE = try normal.normilize();
-
+        const min_sin = 0.25;
         const sinVec = vecE.x * normalA.x + vecE.y * normalA.y;
 
-        const newPoint = Point2{
-            .x = points[index].x + vecE.x * (increaseLen / sinVec),
-            .y = points[index].y + vecE.y * (increaseLen / sinVec),
-        };
-
-        biggerHull[index] = newPoint;
+        if (sinVec < min_sin) {
+            const p1 = Point2{
+                .x = points[index].x + normalA.x * increaseLen + vecE.x * increaseLen,
+                .y = points[index].y + normalA.y * increaseLen + vecE.y * increaseLen,
+            };
+            const p2 = Point2{
+                .x = points[index].x + normalB.x * increaseLen + vecE.x * increaseLen,
+                .y = points[index].y + normalB.y * increaseLen + vecE.y * increaseLen,
+            };
+            try biggerHull.append(allocator, p1);
+            try biggerHull.append(allocator, p2);
+        } else {
+            const newPoint = Point2{
+                .x = points[index].x + vecE.x * (increaseLen / sinVec),
+                .y = points[index].y + vecE.y * (increaseLen / sinVec),
+            };
+            try biggerHull.append(allocator, newPoint);
+        }
     }
 
-    return biggerHull;
+    return try biggerHull.toOwnedSlice(allocator);
 }
