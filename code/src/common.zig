@@ -91,6 +91,10 @@ pub const AABB = struct {
     pub fn height(self: AABB) f32 {
         return self.Ymax - self.Ymin;
     }
+
+    pub fn containsPoint(self: AABB, point: Point2) bool {
+        return point.x >= self.Xmin and point.x <= self.Xmax and point.y >= self.Ymin and point.y <= self.Ymax;
+    }
 };
 
 test "AABB sides size" {
@@ -114,6 +118,7 @@ pub const Blob = struct {
     }
 
     pub fn containsPoint(self: Blob, point: Point2) bool {
+        if (!self.aabb.containsPoint(point)) return false;
         for (0..self.points.len, 1..) |a, b| {
             const start = self.points[a];
             const end = self.points[b % self.points.len];
