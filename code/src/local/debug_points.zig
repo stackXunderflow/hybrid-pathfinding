@@ -3,6 +3,7 @@ const Allocator = std.mem.Allocator;
 
 const common = @import("../common.zig");
 const Point2 = common.Point2;
+const AABB = common.AABB;
 
 const global = @import("../global.zig");
 const BlobContent = global.BlobContent;
@@ -25,7 +26,8 @@ pub fn addHaltonPointsInBlobAABB(
 ) !void {
     _ = robot_start;
     _ = robot_end;
-    _ = robot_radius;
+
+    const dangerLen = robot_radius * common.constants.LOCAL_GEOMETRY_DANGER_DELTA;
 
     const aabb = blob.blob.aabb;
 
@@ -34,10 +36,18 @@ pub fn addHaltonPointsInBlobAABB(
 
     const points = try halton.generateHallPoints2D(gpa, w, h, aabb.Xmin, aabb.Ymin, density, seed);
 
+    const expanded_aabbs = try gpa.alloc(AABB, blob.meshs.len);
+    for (blob.meshs, 0..) |mesh, i| {
+        expanded_aabbs[i] = AABB.fromPoints(mesh.points).expand(dangerLen);
+    }
+
     blk: for (points) |point| {
         if (blob.blob.containsPoint(point)){
-            for (blob.meshs) |mesh| {
-                if (intersection.rayIntersection(mesh, point)){
+            for (blob.meshs, 0..) |mesh, i| {
+                if (!expanded_aabbs[i].containsPoint(point)){
+                    continue;
+                }
+                if (intersection.dangerIntersection(mesh, point, dangerLen)){
                     continue :blk;
                 }
             }

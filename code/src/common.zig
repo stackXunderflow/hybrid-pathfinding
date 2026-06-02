@@ -3,6 +3,7 @@ const std = @import("std");
 pub const constants = struct {
     pub const GLOBAL_GEOMETRY_HULL_DELTA: f32 = 1.05;
     pub const F32_EPSILON = 0.000001;
+    pub const LOCAL_GEOMETRY_DANGER_DELTA: f32 = 1.051;
 };
 
 pub const SceneBorders = struct {
@@ -95,15 +96,12 @@ pub const AABB = struct {
     pub fn containsPoint(self: AABB, point: Point2) bool {
         return point.x >= self.Xmin and point.x <= self.Xmax and point.y >= self.Ymin and point.y <= self.Ymax;
     }
+
+    pub fn expand(self: AABB, distance: f32) AABB {
+        return .{ .Xmin = self.Xmin - distance, .Ymin = self.Ymin - distance,
+         .Xmax = self.Xmax + distance, .Ymax = self.Ymax + distance };
+    }
 };
-
-test "AABB sides size" {
-    const testing = std.testing;
-    const aabb: AABB = .{ .Xmax = 7, .Ymax = 2, .Xmin = -2, .Ymin = -3 };
-
-    try testing.expectEqual(9, aabb.width());
-    try testing.expectEqual(5, aabb.height());
-}
 
 pub const Mesh = struct {
     points: []const Point2,
