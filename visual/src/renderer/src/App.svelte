@@ -111,6 +111,14 @@
 		});
 	}
 
+	function updateBorder(point: 'bottom_left' | 'top_right', axis: 'x' | 'y', value: string) {
+		const next = Number(value);
+		if (!Number.isFinite(next)) return;
+		updateScene((draft) => {
+			draft.borders[point][axis] = next;
+		});
+	}
+
 	function onKeyDown(event: KeyboardEvent) {
 		if ((event.ctrlKey || event.metaKey) && event.code === 'KeyS') {
 			event.preventDefault();
@@ -263,16 +271,17 @@
 			</div>
 
 			{#if $sceneOutput?.debug?.length}
-				<div class="border-t border-slate-200 pt-4">
+				<div class="border-t border-slate-200 pt-4 {!layers.debug ? 'opacity-50' : ''}">
 					<div class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Debug layouts</div>
 					{#each $sceneOutput.debug as layout}
-						<label class="flex cursor-pointer items-center justify-between rounded px-1.5 py-1 text-sm hover:bg-slate-50">
+						<label class="flex items-center justify-between rounded px-1.5 py-1 text-sm hover:bg-slate-50 {layers.debug ? 'cursor-pointer' : 'cursor-not-allowed'}">
 							<span class="truncate" title={layout.name}>{layout.name}</span>
 							<input
 								class="layer-checkbox"
 								type="checkbox"
 								checked={layers.debugLayouts[layout.name] !== false}
 								onchange={() => toggleDebugLayout(layout.name)}
+								disabled={!layers.debug}
 							/>
 						</label>
 					{/each}
@@ -325,10 +334,53 @@
 				</div>
 			</div>
 
-			<div>
-				<div class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Active tool</div>
-				<div class="rounded bg-slate-50 p-2 text-sm font-medium text-slate-800">{tool}</div>
-			</div>
+			{#if $sceneInput}
+				<div class="mb-4">
+					<div class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Borders</div>
+					<div class="grid grid-cols-2 gap-2">
+						<label class="text-xs text-slate-500">
+							Left X
+							<input
+								class="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
+								type="number"
+								step="1"
+								value={$sceneInput.borders.bottom_left.x}
+								onchange={(event) => updateBorder('bottom_left', 'x', event.currentTarget.value)}
+							/>
+						</label>
+						<label class="text-xs text-slate-500">
+							Top Y
+							<input
+								class="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
+								type="number"
+								step="1"
+								value={$sceneInput.borders.bottom_left.y}
+								onchange={(event) => updateBorder('bottom_left', 'y', event.currentTarget.value)}
+							/>
+						</label>
+						<label class="text-xs text-slate-500">
+							Right X
+							<input
+								class="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
+								type="number"
+								step="1"
+								value={$sceneInput.borders.top_right.x}
+								onchange={(event) => updateBorder('top_right', 'x', event.currentTarget.value)}
+							/>
+						</label>
+						<label class="text-xs text-slate-500">
+							Bottom Y
+							<input
+								class="mt-1 w-full rounded border border-slate-200 px-2 py-1 text-sm"
+								type="number"
+								step="1"
+								value={$sceneInput.borders.top_right.y}
+								onchange={(event) => updateBorder('top_right', 'y', event.currentTarget.value)}
+							/>
+						</label>
+					</div>
+				</div>
+			{/if}
 		</aside>
 	</section>
 

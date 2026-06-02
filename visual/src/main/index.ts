@@ -18,6 +18,10 @@ const defaultScenePath = (() => {
 	if (!p) throw new Error('VITE_SCENE_PATH is not set');
 	return resolve(visualDir, p);
 })();
+const defaultBorders = {
+	bottom_left: { x: 0, y: 0 },
+	top_right: { x: 1500, y: 1000 },
+};
 
 function execBinary(scenePath: string): Promise<BinaryRunResult> {
 	return new Promise((resolve) => {
@@ -43,7 +47,12 @@ let mainWindow: BrowserWindow | null = null;
 
 async function readSceneFile(path: string): Promise<SceneInput> {
 	const content = await readFile(path, 'utf8');
-	return JSON.parse(content) as SceneInput;
+	const scene = JSON.parse(content) as SceneInput;
+	if (!('borders' in scene)) {
+		scene.borders = structuredClone(defaultBorders);
+		await writeSceneFile(path, scene);
+	}
+	return scene;
 }
 
 async function writeSceneFile(path: string, scene: SceneInput): Promise<void> {

@@ -8,6 +8,7 @@ const common = @import("common.zig");
 const Robot = common.Robot;
 const Point = common.Point2;
 const Mesh = common.Mesh;
+const SceneBorders = common.SceneBorders;
 const dbg = @import("dbg.zig");
 const global = @import("global.zig");
 const BlobContent = global.BlobContent;
@@ -15,6 +16,7 @@ const pathfinding = @import("pathfinding.zig");
 
 const SceneJson = struct {
     robot: Robot,
+    borders: SceneBorders,
     meshs: []const Mesh,
 };
 
@@ -31,6 +33,7 @@ pub fn readScene(allocator: Allocator, io: std.Io, path: []const u8) !std.json.P
 
 const Output = struct {
     robot: Robot,
+    borders: SceneBorders,
     blobs: []const BlobContent,
     debug: ?[]const dbg.DebugLayout,
 };
@@ -95,7 +98,7 @@ fn run() !void {
             );
         }
     }
-    try output(ginit.io, .{ .robot = parsed.value.robot, .blobs = globalGeometry.blobs, .debug = debugger.layouts.items });
+    try output(ginit.io, .{ .robot = parsed.value.robot, .borders = parsed.value.borders, .blobs = globalGeometry.blobs, .debug = debugger.layouts.items });
 }
 
 test {

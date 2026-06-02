@@ -5,6 +5,11 @@ pub const constants = struct {
     pub const F32_EPSILON = 0.000001;
 };
 
+pub const SceneBorders = struct {
+    bottom_left: Point2,
+    top_right: Point2,
+};
+
 pub const Robot = struct { radius: f32, start: Point2, end: Point2 };
 
 pub const Point2 = struct {

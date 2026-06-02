@@ -18,7 +18,9 @@
 		| { type: 'mesh'; meshIndex: number }
 		| { type: 'vertex'; meshIndex: number; pointIndex: number }
 		| { type: 'robot'; handle: 'start' | 'end' }
+		| { type: 'border'; handle: BorderHandle }
 		| null;
+	type BorderHandle = 'top-left' | 'top' | 'top-right' | 'right' | 'bottom-right' | 'bottom' | 'bottom-left' | 'left';
 	type Layers = {
 		obstacles: boolean;
 		robot: boolean;
@@ -41,6 +43,14 @@
 	let canvas: HTMLCanvasElement;
 	let ctx: CanvasRenderingContext2D | null = $state(null);
 	let scale = $state(1);
+
+	const cursorMap: Record<Tool, string> = {
+		select: 'cursor-default',
+		pan: 'cursor-grab',
+		'add-mesh': 'cursor-crosshair',
+		'add-vertex': 'cursor-crosshair',
+		delete: 'cursor-crosshair',
+	};
 	let offsetX = $state(0);
 	let offsetY = $state(0);
 	let mouse = $state<Point>({ x: 0, y: 0 });
@@ -53,6 +63,7 @@
 		| { mode: 'vertex'; meshIndex: number; pointIndex: number }
 		| { mode: 'mesh'; meshIndex: number; lastWorld: Point }
 		| { mode: 'robot'; handle: 'start' | 'end' }
+		| { mode: 'border'; handle: BorderHandle }
 		| null = null;
 
 	function sx(x: number) {
@@ -83,6 +94,14 @@
 	}
 
 	function getBounds() {
+		if (scene?.borders) {
+			const minX = Math.min(scene.borders.bottom_left.x, scene.borders.top_right.x);
+			const minY = Math.min(scene.borders.bottom_left.y, scene.borders.top_right.y);
+			const maxX = Math.max(scene.borders.bottom_left.x, scene.borders.top_right.x);
+			const maxY = Math.max(scene.borders.bottom_left.y, scene.borders.top_right.y);
+			const pad = 80;
+			return { minX: minX - pad, minY: minY - pad, maxX: maxX + pad, maxY: maxY + pad };
+		}
 		const bounds = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
 		for (const mesh of scene?.meshs ?? []) for (const point of mesh.points) expandBounds(bounds, point);
 		for (const blob of output?.blobs ?? []) for (const point of blob.blob.points) expandBounds(bounds, point);
@@ -131,6 +150,47 @@
 		ctx.fill();
 	}
 
+	function borderRect() {
+		if (!scene?.borders) return null;
+		const left = Math.min(scene.borders.bottom_left.x, scene.borders.top_right.x);
+		const right = Math.max(scene.borders.bottom_left.x, scene.borders.top_right.x);
+		const top = Math.min(scene.borders.bottom_left.y, scene.borders.top_right.y);
+		const bottom = Math.max(scene.borders.bottom_left.y, scene.borders.top_right.y);
+		return { left, right, top, bottom };
+	}
+
+	function borderHandlePoints(rect: { left: number; right: number; top: number; bottom: number }) {
+		const midX = (rect.left + rect.right) / 2;
+		const midY = (rect.top + rect.bottom) / 2;
+		return [
+			{ handle: 'top-left' as const, point: { x: rect.left, y: rect.top } },
+			{ handle: 'top' as const, point: { x: midX, y: rect.top } },
+			{ handle: 'top-right' as const, point: { x: rect.right, y: rect.top } },
+			{ handle: 'right' as const, point: { x: rect.right, y: midY } },
+			{ handle: 'bottom-right' as const, point: { x: rect.right, y: rect.bottom } },
+			{ handle: 'bottom' as const, point: { x: midX, y: rect.bottom } },
+			{ handle: 'bottom-left' as const, point: { x: rect.left, y: rect.bottom } },
+			{ handle: 'left' as const, point: { x: rect.left, y: midY } },
+		];
+	}
+
+	function drawBorders() {
+		if (!ctx) return;
+		const rect = borderRect();
+		if (!rect) return;
+		ctx.beginPath();
+		ctx.rect(sx(rect.left), sy(rect.top), (rect.right - rect.left) * scale, (rect.bottom - rect.top) * scale);
+		ctx.strokeStyle = selection?.type === 'border' ? '#0f766e' : '#14b8a6';
+		ctx.lineWidth = selection?.type === 'border' ? 3 : 2;
+		ctx.setLineDash([8, 5]);
+		ctx.stroke();
+		ctx.setLineDash([]);
+		for (const item of borderHandlePoints(rect)) {
+			const selected = selection?.type === 'border' && selection.handle === item.handle;
+			drawPoint(item.point, selected ? 6 : 5, selected ? '#0f766e' : '#14b8a6', true);
+		}
+	}
+
 	function drawLabel(label: string | undefined, point: Point, color: string) {
 		if (!ctx || !layers.labels || !label) return;
 		ctx.fillStyle = color;
@@ -165,7 +225,7 @@
 		if (item.type === 'point') {
 			// Для точек всегда используем чёрный цвет, чтобы не было радуги
 			const pointColor = '#111827';
-			drawPoint(item.point, 4, pointColor, true);
+			drawPoint(item.point, Math.max(1, 4 * scale), pointColor, true);
 			drawLabel(item.label, item.point, pointColor);
 		} else if (item.type === 'mesh') {
 			ctx.setLineDash(item.dashed ? [8, 6] : []);
@@ -223,6 +283,8 @@
 		ctx.clearRect(0, 0, rect.width, rect.height);
 		ctx.fillStyle = theme.background;
 		ctx.fillRect(0, 0, rect.width, rect.height);
+
+		drawBorders();
 
 		if (layers.obstacles && scene) {
 			for (const [meshIndex, mesh] of scene.meshs.entries()) {
@@ -298,6 +360,21 @@
 	function hitTest(world: Point): Selection {
 		if (!scene) return null;
 		const tolerance = 9 / scale;
+		const rect = borderRect();
+		if (rect) {
+			for (const item of borderHandlePoints(rect)) {
+				if (distance(world, item.point) <= tolerance) return { type: 'border', handle: item.handle };
+			}
+			const edges: { handle: BorderHandle; from: Point; to: Point }[] = [
+				{ handle: 'top', from: { x: rect.left, y: rect.top }, to: { x: rect.right, y: rect.top } },
+				{ handle: 'right', from: { x: rect.right, y: rect.top }, to: { x: rect.right, y: rect.bottom } },
+				{ handle: 'bottom', from: { x: rect.left, y: rect.bottom }, to: { x: rect.right, y: rect.bottom } },
+				{ handle: 'left', from: { x: rect.left, y: rect.top }, to: { x: rect.left, y: rect.bottom } },
+			];
+			for (const edge of edges) {
+				if (distanceToSegment(world, edge.from, edge.to) <= tolerance) return { type: 'border', handle: edge.handle };
+			}
+		}
 		if (layers.robot) {
 			if (distance(world, scene.robot.start) <= tolerance) return { type: 'robot', handle: 'start' };
 			if (distance(world, scene.robot.end) <= tolerance) return { type: 'robot', handle: 'end' };
@@ -381,6 +458,7 @@
 		if (next?.type === 'vertex') drag = { mode: 'vertex', meshIndex: next.meshIndex, pointIndex: next.pointIndex };
 		else if (next?.type === 'mesh') drag = { mode: 'mesh', meshIndex: next.meshIndex, lastWorld: world };
 		else if (next?.type === 'robot') drag = { mode: 'robot', handle: next.handle };
+		else if (next?.type === 'border') drag = { mode: 'border', handle: next.handle };
 		draw();
 	}
 
@@ -411,6 +489,13 @@
 				drag.lastWorld = world;
 			} else if (drag?.mode === 'robot') {
 				draft.robot[drag.handle] = clonePoint(world);
+			} else if (drag?.mode === 'border') {
+				const minSize = 1;
+				const borders = draft.borders;
+				if (drag.handle.includes('left')) borders.bottom_left.x = Math.min(world.x, borders.top_right.x - minSize);
+				if (drag.handle.includes('right')) borders.top_right.x = Math.max(world.x, borders.bottom_left.x + minSize);
+				if (drag.handle.includes('top')) borders.bottom_left.y = Math.min(world.y, borders.top_right.y - minSize);
+				if (drag.handle.includes('bottom')) borders.top_right.y = Math.max(world.y, borders.bottom_left.y + minSize);
 			}
 		});
 	}
@@ -495,7 +580,7 @@
 <div class="relative h-full w-full bg-white">
 	<canvas
 		bind:this={canvas}
-		class="block h-full w-full cursor-crosshair"
+		class="block h-full w-full {cursorMap[tool]}"
 		onpointerdown={onPointerDown}
 		onpointermove={onPointerMove}
 		onpointerup={onPointerUp}

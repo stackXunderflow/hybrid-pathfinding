@@ -9,7 +9,13 @@ export interface Mesh {
 
 export interface SceneInput {
 	robot: Robot;
+	borders: SceneBorders;
 	meshs: Mesh[];
+}
+
+export interface SceneBorders {
+	bottom_left: Point;
+	top_right: Point;
 }
 
 export interface BlobContent {
@@ -25,6 +31,7 @@ export interface Robot {
 
 export interface SceneOutput {
 	robot: Robot;
+	borders: SceneBorders;
 	blobs: BlobContent[];
 	debug?: DebugLayout[] | null;
 }
