@@ -1,7 +1,24 @@
 const common = @import("../common.zig");
+const AABB = common.AABB;
 const Mesh = common.Mesh;
 const Point2 = common.Point2;
 const Vec2 = common.Vec2;
+const BlobContent = @import("../global.zig").BlobContent;
+
+pub fn isValidPoint(point: Point2, danger_len: f32, blob: BlobContent, aabbs: []const AABB) bool {
+    if (!blob.blob.containsPoint(point)) return false;
+
+    for (blob.meshs, aabbs) |mesh, aabb| {
+        if (!aabb.containsPoint(point)) {
+            continue;
+        }
+        if (dangerIntersection(mesh, point, danger_len)) {
+            return false;
+        }
+    }
+
+    return true;
+}
 
 pub fn rayIntersection(mesh: Mesh, point: Point2) bool {
     if (mesh.points.len < 3) return false;
@@ -18,7 +35,7 @@ pub fn rayIntersection(mesh: Mesh, point: Point2) bool {
                 count += 1;
             }
         }
-    } 
+    }
     return count % 2 == 1;
 }
 

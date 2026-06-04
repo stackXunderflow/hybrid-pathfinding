@@ -4,6 +4,7 @@ pub const constants = struct {
     pub const GLOBAL_GEOMETRY_HULL_DELTA: f32 = 1.05;
     pub const F32_EPSILON = 0.000001;
     pub const LOCAL_GEOMETRY_DANGER_DELTA: f32 = 1.051;
+    pub const EDGE_POINTS_OFFSET: f32 = 1.049;
 };
 
 pub const SceneBorders = struct {
@@ -98,8 +99,7 @@ pub const AABB = struct {
     }
 
     pub fn expand(self: AABB, distance: f32) AABB {
-        return .{ .Xmin = self.Xmin - distance, .Ymin = self.Ymin - distance,
-         .Xmax = self.Xmax + distance, .Ymax = self.Ymax + distance };
+        return .{ .Xmin = self.Xmin - distance, .Ymin = self.Ymin - distance, .Xmax = self.Xmax + distance, .Ymax = self.Ymax + distance };
     }
 };
 

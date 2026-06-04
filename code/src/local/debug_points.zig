@@ -15,21 +15,21 @@ const intersection = @import("intersection.zig");
 
 const offset = @import("offset_points.zig");
 
-pub fn addHaltonPointsInBlobAABB(
+const GeneratedPoints = struct {
+    halton: []const Point2,
+    obstacles: []const []const Point2,
+};
+
+pub fn generatePoints(
     gpa: Allocator,
-    debugger: *dbg.Debugger,
     blob: BlobContent,
-    robot_start: Point2,
-    robot_end: Point2,
     robot_radius: f32,
     density: f32,
+    edge_density: f32,
     seed: u64,
-    layer_name: []const u8,
-) !void {
-    _ = robot_start;
-    _ = robot_end;
-
-    const dangerLen = robot_radius * common.constants.LOCAL_GEOMETRY_DANGER_DELTA;
+) !GeneratedPoints {
+    const danger_len = robot_radius * common.constants.LOCAL_GEOMETRY_DANGER_DELTA;
+    const points_edge_offset = robot_radius * common.constants.EDGE_POINTS_OFFSET;
 
     const aabb = blob.blob.aabb;
 
@@ -37,51 +37,33 @@ pub fn addHaltonPointsInBlobAABB(
     const h = aabb.height();
 
     const points = try halton.generateHallPoints2D(gpa, w, h, aabb.Xmin, aabb.Ymin, density, seed);
+    var filtred: std.ArrayList(Point2) = .empty;
 
     const expanded_aabbs = try gpa.alloc(AABB, blob.meshs.len);
+    defer gpa.free(expanded_aabbs);
     for (blob.meshs, 0..) |mesh, i| {
-        expanded_aabbs[i] = AABB.fromPoints(mesh.points).expand(dangerLen);
+        expanded_aabbs[i] = AABB.fromPoints(mesh.points).expand(danger_len);
     }
 
-    blk: for (points) |point| {
-        if (blob.blob.containsPoint(point)){
-            for (blob.meshs, 0..) |mesh, i| {
-                if (!expanded_aabbs[i].containsPoint(point)){
-                    continue;
-                }
-                if (intersection.dangerIntersection(mesh, point, dangerLen)){
-                    continue :blk;
-                }
-            }
-
-            try debugger.point(
-                point,
-                .{ .layout = layer_name },
-            );
+    for (points) |point| {
+        if (intersection.isValidPoint(point, danger_len, blob, expanded_aabbs)) {
+            try filtred.append(gpa, point);
         }
     }
 
-    gpa.free(points);
-    gpa.free(expanded_aabbs);
-
-    const edge_layer_name = try std.fmt.allocPrint(gpa, "{s}_offset", .{layer_name});
-    defer gpa.free(edge_layer_name);
-    const edge_density: f32 = 0.05;
+    var meshs_points: std.ArrayList([]const Point2) = .empty;
     for (blob.meshs) |mesh| {
-        const n = mesh.points.len;
-        if (n < 2) continue;
-        for (0..n) |i| {
-            const p1 = mesh.points[i];
-            const p2 = mesh.points[(i + 1) % n];
-            const edge_pts = try offset.generateSafeOffsetPoints(gpa, p1, p2, mesh, blob.meshs, dangerLen, edge_density);
-            defer gpa.free(edge_pts);
-            for (edge_pts) |pt| {
-                if (blob.blob.containsPoint(pt)) {
-                    try debugger.point(pt, .{ .layout = edge_layer_name });
-                }
+        var filtred_pts: std.ArrayList(Point2) = .empty;
+        const pts = try offset.generateOffsetPoints(gpa, mesh, danger_len, edge_density);
+        defer gpa.free(pts);
+
+        for (pts) |point| {
+            if (intersection.isValidPoint(point, points_edge_offset, blob, expanded_aabbs)) {
+                try filtred_pts.append(gpa, point);
             }
         }
+        try meshs_points.append(gpa, try filtred_pts.toOwnedSlice(gpa));
     }
 
+    return .{ .halton = try filtred.toOwnedSlice(gpa), .obstacles = try meshs_points.toOwnedSlice(gpa) };
 }
-

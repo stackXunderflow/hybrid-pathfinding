@@ -85,17 +85,24 @@ fn run() !void {
             const layer_name = std.fmt.allocPrint(allocator, "blob_{d}_halton", .{i}) catch continue;
             defer allocator.free(layer_name);
 
-            try local_debug.addHaltonPointsInBlobAABB(
+            const generated = try local_debug.generatePoints(
                 ginit.gpa,
-                &debugger,
                 blob,
-                parsed.value.robot.start,
-                parsed.value.robot.end,
                 parsed.value.robot.radius,
                 0.001,
+                0.02,
                 42,
-                layer_name,
             );
+
+            for (generated.halton) |point| {
+                try debugger.point(point, .{ .layout = layer_name });
+            }
+
+            for (generated.obstacles) |o| {
+                for (o) |point| {
+                    try debugger.point(point, .{ .layout = layer_name });
+                }
+            }
         }
     }
     try output(ginit.io, .{ .robot = parsed.value.robot, .borders = parsed.value.borders, .blobs = globalGeometry.blobs, .debug = debugger.layouts.items });
