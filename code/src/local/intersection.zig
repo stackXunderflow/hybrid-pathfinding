@@ -18,8 +18,7 @@ pub fn rayIntersection(mesh: Mesh, point: Point2) bool {
                 count += 1;
             }
         }
-    }
-
+    } 
     return count % 2 == 1;
 }
 

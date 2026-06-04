@@ -13,6 +13,8 @@ const halton = @import("halton.zig");
 
 const intersection = @import("intersection.zig");
 
+const offset = @import("offset_points.zig");
+
 pub fn addHaltonPointsInBlobAABB(
     gpa: Allocator,
     debugger: *dbg.Debugger,
@@ -59,4 +61,27 @@ pub fn addHaltonPointsInBlobAABB(
         }
     }
 
+    gpa.free(points);
+    gpa.free(expanded_aabbs);
+
+    const edge_layer_name = try std.fmt.allocPrint(gpa, "{s}_offset", .{layer_name});
+    defer gpa.free(edge_layer_name);
+    const edge_density: f32 = 0.05;
+    for (blob.meshs) |mesh| {
+        const n = mesh.points.len;
+        if (n < 2) continue;
+        for (0..n) |i| {
+            const p1 = mesh.points[i];
+            const p2 = mesh.points[(i + 1) % n];
+            const edge_pts = try offset.generateSafeOffsetPoints(gpa, p1, p2, mesh, blob.meshs, dangerLen, edge_density);
+            defer gpa.free(edge_pts);
+            for (edge_pts) |pt| {
+                if (blob.blob.containsPoint(pt)) {
+                    try debugger.point(pt, .{ .layout = edge_layer_name });
+                }
+            }
+        }
+    }
+
 }
+
