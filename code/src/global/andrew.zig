@@ -14,10 +14,6 @@ fn pointLessThan(_: void, a: Point2, b: Point2) bool {
     return a.y < b.y;
 }
 
-fn orientation(a: Point2, b: Point2, c: Point2) f32 {
-    return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
-}
-
 pub fn convexHull(allocator: Allocator, mesh_points: []const Point2) ![]const Point2 {
     const points = try allocator.dupe(Point2, mesh_points);
     defer allocator.free(points);
@@ -32,7 +28,7 @@ pub fn convexHull(allocator: Allocator, mesh_points: []const Point2) ![]const Po
 
     for (points) |p| {
         while (hull.items.len >= 2 and
-            orientation(hull.items[hull.items.len - 2], hull.items[hull.items.len - 1], p) <= 0)
+            p.orientation(hull.items[hull.items.len - 2], hull.items[hull.items.len - 1]) <= 0)
         {
             _ = hull.pop();
         }
@@ -46,7 +42,7 @@ pub fn convexHull(allocator: Allocator, mesh_points: []const Point2) ![]const Po
         i -= 1;
         const p = points[i];
         while (hull.items.len >= lower_limit and
-            orientation(hull.items[hull.items.len - 2], hull.items[hull.items.len - 1], p) <= 0)
+            p.orientation(hull.items[hull.items.len - 2], hull.items[hull.items.len - 1]) <= 0)
         {
             _ = hull.pop();
         }

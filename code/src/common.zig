@@ -29,6 +29,10 @@ pub const Point2 = struct {
     pub fn magnitude(self: Point2, other: Point2) f32 {
         return self.vecTo(other).len();
     }
+
+    pub fn orientation(self: Point2, a: Point2, b: Point2) f32 {
+        return a.vecTo(b).cross(a.vecTo(self));
+    }
 };
 
 pub const Vec2 = struct {
@@ -53,6 +57,10 @@ pub const Vec2 = struct {
 
     pub fn scale(self: Vec2, mul: f32) Vec2 {
         return .{ .x = self.x * mul, .y = self.y * mul };
+    }
+
+    pub fn cross(self: Vec2, other: Vec2) f32 {
+        return self.x * other.y - self.y * other.x;
     }
 
     pub fn scalarProduct(self: Vec2, other: Vec2) f32 {
@@ -120,8 +128,7 @@ pub const Blob = struct {
         for (0..self.points.len, 1..) |a, b| {
             const start = self.points[a];
             const end = self.points[b % self.points.len];
-            const d = (end.x - start.x) * (point.y - start.y) - (end.y - start.y) * (point.x - start.x);
-            if (d <= 0) {
+            if (point.orientation(start, end) <= 0) {
                 return false;
             }
         }
