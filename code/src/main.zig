@@ -58,7 +58,23 @@ pub fn main(init: std.process.Init) !void {
     var r = cli.AppRunner.init(&init);
     defer r.deinit();
 
-    const app = cli.App{ .command = cli.Command{ .name = "scene", .options = try r.allocOptions(&.{.{ .long_name = "scene", .help = "Путь до сцены", .value_ref = r.mkRef(&config.scene_path) }}), .target = cli.CommandTarget{ .action = cli.CommandAction{ .exec = run } } } };
+    const app = cli.App{
+        .command = cli.Command{
+            .name = "scene",
+            .options = try r.allocOptions(&.{
+                .{
+                    .long_name = "scene",
+                    .help = "Путь до сцены",
+                    .value_ref = r.mkRef(&config.scene_path),
+                },
+            }),
+            .target = cli.CommandTarget{
+                .action = cli.CommandAction{
+                    .exec = run,
+                },
+            },
+        },
+    };
 
     return r.run(&app);
 }
