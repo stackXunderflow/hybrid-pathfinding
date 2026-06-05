@@ -17,6 +17,8 @@ pub const DebugItem = struct {
     point: ?Point2 = null,
     from: ?Point2 = null,
     to: ?Point2 = null,
+    points: ?[]const Point2 = null,
+    triangles: ?[]const u32 = null,
     label: ?[]const u8 = null,
 };
 
@@ -86,6 +88,10 @@ pub const Debugger = struct {
 
     pub fn line(self: *Debugger, p1: Point2, p2: Point2, o: Options) !void {
         try self.append_item(.{ .type = "line", .from = p1, .to = p2, .label = o.label }, o.layout);
+    }
+
+    pub fn triangulation(self: *Debugger, points: []const Point2, triangles: []const u32, o: Options) !void {
+        try self.append_item(.{ .type = "triangulation", .points = points, .triangles = triangles, .label = o.label }, o.layout);
     }
 };
 

@@ -15,7 +15,7 @@ const intersection = @import("intersection.zig");
 
 const offset = @import("offset_points.zig");
 
-const GeneratedPoints = struct {
+pub const GeneratedPoints = struct {
     halton: []const Point2,
     obstacles: []const []const Point2,
 };

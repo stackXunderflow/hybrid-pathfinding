@@ -13,6 +13,7 @@ const dbg = @import("dbg.zig");
 const global = @import("global.zig");
 const BlobContent = global.BlobContent;
 const pathfinding = @import("pathfinding.zig");
+const triangulation = @import("triangulation.zig");
 
 const SceneJson = struct {
     robot: Robot,
@@ -119,6 +120,8 @@ fn run() !void {
                     try debugger.point(point, .{ .layout = layer_name });
                 }
             }
+
+            try triangulation.Delone.run(allocator, &debugger, generated, blob.blob.aabb, layer_name);
         }
     }
     try output(ginit.io, .{ .robot = parsed.value.robot, .borders = parsed.value.borders, .blobs = globalGeometry.blobs, .debug = debugger.layouts.items });

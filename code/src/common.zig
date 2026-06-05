@@ -33,6 +33,14 @@ pub const Point2 = struct {
     pub fn orientation(self: Point2, a: Point2, b: Point2) f32 {
         return a.vecTo(b).cross(a.vecTo(self));
     }
+
+    pub fn projectOnEdge(self: Point2, a: Point2, b: Point2) Point2 {
+        const ab = Point2.vecTo(a, b);
+        const ap = Point2.vecTo(a, self);
+        const len = ab.scalarProduct(ab);
+        const t = std.math.clamp(ap.scalarProduct(ab) / len, 0, 1);
+        return a.plus(ab.scale(t));
+    }
 };
 
 pub const Vec2 = struct {
