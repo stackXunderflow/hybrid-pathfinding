@@ -1,12 +1,13 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 
-const common = @import("../common.zig");
+const common = @import("../../common.zig");
 const AABB = common.AABB;
 const Vec2 = common.Vec2;
 const Point2 = common.Point2;
+const local = @import("../../local.zig");
+const PointsCollection = local.PointsCollection;
 const triangulation = @import("../triangulation.zig");
-const PointsCollection = triangulation.PointsCollection;
 
 pub fn normalize(gpa: Allocator, points: PointsCollection, aabb: AABB) !PointsCollection {
     const shift: Vec2 = .{ .x = -aabb.Xmin, .y = -aabb.Ymin };

@@ -27,11 +27,11 @@ fn generateEdgePoints(gpa: Allocator, a: Point2, b: Point2, density: f32) ![]con
     return try points.toOwnedSlice(gpa);
 }
 
-pub fn generateBlobBoundaryPoints(gpa: Allocator, blob: Blob, density: f32) ![]const Point2 {
+pub fn generateBlobBoundaryPoints(gpa: Allocator, mesh_points: []const Point2, density: f32) ![]const Point2 {
     var points: std.ArrayList(Point2) = .empty;
-    for (0..blob.points.len) |i| {
-        const p1 = blob.points[i];
-        const p2 = blob.points[(i + 1) % blob.points.len];
+    for (0..mesh_points.len) |i| {
+        const p1 = mesh_points[i];
+        const p2 = mesh_points[(i + 1) % mesh_points.len];
         const edge_pts = try generateEdgePoints(gpa, p1, p2, density);
         defer gpa.free(edge_pts);
 

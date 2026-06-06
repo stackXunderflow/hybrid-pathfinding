@@ -1,7 +1,7 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 
-const common = @import("../common.zig");
+const common = @import("../../common.zig");
 const Point2 = common.Point2;
 
 pub const Cache = struct {

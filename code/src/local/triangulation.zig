@@ -1,25 +1,23 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 
-const common = @import("common.zig");
-const local = @import("local/debug_points.zig");
-const Cache = @import("triangulation/cache.zig").Cache;
+const common = @import("../common.zig");
 const AABB = common.AABB;
-const normalization = @import("triangulation/normalization.zig");
 const Point2 = common.Point2;
-const GeneratedPoints = local.GeneratedPoints;
-const Debugger = @import("dbg.zig").Debugger;
-
-pub const PointsCollection = struct {
-    items: []const Point2,
-    halton: usize,
-    obstacles: usize,
-    superstructure: usize,
-};
+const Debugger = @import("../dbg.zig").Debugger;
+const local = @import("../local.zig");
+const PointsCollection = local.PointsCollection;
+const Cache = @import("triangulation/cache.zig").Cache;
+const normalization = @import("triangulation/normalization.zig");
 
 pub const Superstructure = struct {
     points: PointsCollection,
     triangle: Triangle,
+};
+
+pub const Triangulation = struct {
+    points: PointsCollection,
+    triangles: []const Triangle,
 };
 
 pub const Triangle = struct {
@@ -35,8 +33,7 @@ pub const Delone = struct {
     triangles: std.ArrayList(Triangle),
     cache: Cache,
 
-    pub fn run(gpa: Allocator, debugger: *Debugger, generated: GeneratedPoints, aabb: AABB, layer_name: []const u8) !void {
-        const initial_points = try collectPoints(gpa, generated);
+    pub fn run(gpa: Allocator, initial_points: PointsCollection, aabb: AABB) !Triangulation {
         const normalized = try normalization.normalize(gpa, initial_points, aabb);
         const superstructure = try makeSuperstructure(gpa, normalized);
         var triangles: std.ArrayList(Triangle) = .empty;
@@ -44,7 +41,7 @@ pub const Delone = struct {
 
         var delone: Delone = .{ .cache = try Cache.init(gpa, 2), .points = superstructure.points, .triangles = triangles };
 
-        for (0..delone.points.obstacles) |index| {
+        for (0..delone.points.boundary) |index| {
             const point = delone.points.items[index];
             const triangle = delone.findTriangle(point);
 
@@ -107,15 +104,10 @@ pub const Delone = struct {
             }
         }
 
-        var tr = try gpa.alloc(u32, delone.triangles.items.len * 3);
-        for (delone.triangles.items, 0..) |triangle, i| {
-            tr[i * 3] = triangle.nodes[0];
-            tr[i * 3 + 1] = triangle.nodes[1];
-            tr[i * 3 + 2] = triangle.nodes[2];
-        }
-
-        const denorm = try normalization.denormalize(gpa, delone.points, aabb);
-        try debugger.triangulation(denorm.items, tr, .{ .layout = layer_name });
+        return .{
+            .points = try normalization.denormalize(gpa, delone.points, aabb),
+            .triangles = try delone.triangles.toOwnedSlice(gpa),
+        };
     }
 
     fn updateNeighbor(self: *Delone, nei_index: u32, old_tr: u32, new_tr: u32) void {
@@ -175,25 +167,6 @@ fn findUniqueIndex(values: [3]u32, a: u32, b: u32) usize {
     unreachable;
 }
 
-fn collectPoints(allocator: Allocator, generated: GeneratedPoints) !PointsCollection {
-    var n = generated.halton.len;
-
-    for (generated.obstacles) |obstacles| {
-        n += obstacles.len;
-    }
-
-    var points: std.ArrayList(Point2) = try .initCapacity(allocator, n);
-
-    points.appendSliceAssumeCapacity(generated.halton);
-    const halton = points.items.len;
-    for (generated.obstacles) |obstacles| {
-        points.appendSliceAssumeCapacity(obstacles);
-    }
-    const obstacles = points.items.len;
-
-    return .{ .items = points.toOwnedSliceAssert(), .halton = halton, .obstacles = obstacles, .superstructure = 0 };
-}
-
 fn makeSuperstructure(allocator: Allocator, points: PointsCollection) !Superstructure {
     var new: std.ArrayList(Point2) = try .initCapacity(allocator, points.items.len + 3);
     new.appendSliceAssumeCapacity(points.items);
@@ -210,7 +183,7 @@ fn makeSuperstructure(allocator: Allocator, points: PointsCollection) !Superstru
     };
 
     var new_collection = points;
-    new_collection.superstructure = points.obstacles + 3;
+    new_collection.superstructure = n;
     new_collection.items = new.toOwnedSliceAssert();
 
     return .{ .points = new_collection, .triangle = triangle };
