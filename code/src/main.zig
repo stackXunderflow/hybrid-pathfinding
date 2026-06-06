@@ -111,16 +111,6 @@ fn run() !void {
                 42,
             );
 
-            for (generated.halton) |point| {
-                try debugger.point(point, .{ .layout = layer_name });
-            }
-
-            for (generated.obstacles) |o| {
-                for (o) |point| {
-                    try debugger.point(point, .{ .layout = layer_name });
-                }
-            }
-
             try triangulation.Delone.run(allocator, &debugger, generated, blob.blob.aabb, layer_name);
         }
     }

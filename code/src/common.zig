@@ -34,6 +34,16 @@ pub const Point2 = struct {
         return a.vecTo(b).cross(a.vecTo(self));
     }
 
+    pub fn orientationRobust(self: Point2, a: Point2, b: Point2) f64 {
+        const ax: f64 = a.x;
+        const ay: f64 = a.y;
+        const bx: f64 = b.x;
+        const by: f64 = b.y;
+        const px: f64 = self.x;
+        const py: f64 = self.y;
+        return (bx - ax) * (py - ay) - (by - ay) * (px - ax);
+    }
+
     pub fn projectOnEdge(self: Point2, a: Point2, b: Point2) Point2 {
         const ab = Point2.vecTo(a, b);
         const ap = Point2.vecTo(a, self);

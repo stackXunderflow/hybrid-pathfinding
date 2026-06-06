@@ -30,10 +30,17 @@ pub const Triangle = struct {
     pub const null_index = std.math.maxInt(u32);
 };
 
+pub const Edge = struct {
+    triangle: u32,
+    edge_index: u32,
+};
+
 pub const Delone = struct {
+    allocator: Allocator,
     points: PointsCollection,
     triangles: std.ArrayList(Triangle),
     cache: Cache,
+    edges_queue: std.Deque(Edge),
 
     pub fn run(gpa: Allocator, debugger: *Debugger, generated: GeneratedPoints, aabb: AABB, layer_name: []const u8) !void {
         const initial_points = try collectPoints(gpa, generated);
@@ -42,11 +49,28 @@ pub const Delone = struct {
         var triangles: std.ArrayList(Triangle) = .empty;
         try triangles.append(gpa, superstructure.triangle);
 
-        var delone: Delone = .{ .cache = try Cache.init(gpa, 2), .points = superstructure.points, .triangles = triangles };
+        var delone: Delone = .{
+            .allocator = gpa,
+            .cache = try Cache.init(gpa, 2),
+            .points = superstructure.points,
+            .triangles = triangles,
+            .edges_queue = .empty,
+        };
 
         for (0..delone.points.obstacles) |index| {
             const point = delone.points.items[index];
             const triangle = delone.findTriangle(point);
+
+            // CHECK 1
+            var too_close = false;
+            for (triangle.nodes) |node_idx| {
+                const node_pt = delone.points.items[node_idx];
+                if (point.magnitude(node_pt) < 1e-6) {
+                    too_close = true;
+                    break;
+                }
+            }
+            if (too_close) continue;
 
             const i: u32 = @truncate(index);
             const n: u32 = @truncate(delone.triangles.items.len);
@@ -87,6 +111,10 @@ pub const Delone = struct {
 
                 delone.updateNeighbor(bc, triangle.index, ind2);
                 delone.updateNeighbor(da, nei.index, ind4);
+
+                const new_triangles = &[_]Triangle{ first, second, third, fourth };
+                try delone.queueTrianglesCheck(new_triangles);
+                try delone.addToCache(new_triangles);
             } else {
                 const nodes = triangle.nodes;
                 const neighbors = triangle.neighbors;
@@ -104,18 +132,104 @@ pub const Delone = struct {
 
                 delone.updateNeighbor(neighbors[1], triangle.index, ind2);
                 delone.updateNeighbor(neighbors[2], triangle.index, ind3);
+
+                const new_triangles = &[_]Triangle{ first, second, third };
+                try delone.queueTrianglesCheck(new_triangles);
+                try delone.addToCache(new_triangles);
+            }
+
+            try delone.fixTriangles();
+
+            const m_f = @as(f64, @floatFromInt(delone.cache.m));
+            if (@as(f64, @floatFromInt(normalized.items.len)) > delone.cache.r * m_f * m_f) {
+                try delone.cache.resize();
             }
         }
 
-        var tr = try gpa.alloc(u32, delone.triangles.items.len * 3);
-        for (delone.triangles.items, 0..) |triangle, i| {
-            tr[i * 3] = triangle.nodes[0];
-            tr[i * 3 + 1] = triangle.nodes[1];
-            tr[i * 3 + 2] = triangle.nodes[2];
+        var tr: std.ArrayList(u32) = try .initCapacity(gpa, delone.triangles.items.len * 3);
+        blk: for (delone.triangles.items) |triangle| {
+            for (triangle.nodes) |node| {
+                if (node >= normalized.obstacles) {
+                    continue :blk;
+                }
+            }
+            tr.appendAssumeCapacity(triangle.nodes[0]);
+            tr.appendAssumeCapacity(triangle.nodes[1]);
+            tr.appendAssumeCapacity(triangle.nodes[2]);
         }
 
         const denorm = try normalization.denormalize(gpa, delone.points, aabb);
-        try debugger.triangulation(denorm.items, tr, .{ .layout = layer_name });
+        try debugger.triangulation(denorm.items, try tr.toOwnedSlice(gpa), .{ .layout = layer_name });
+    }
+
+    fn addToCache(self: *Delone, triangles: []const Triangle) !void {
+        for (triangles) |triangle| {
+            self.cache.putTriangle(self.triangleCenter(triangle), triangle.index);
+        }
+    }
+
+    fn queueTrianglesCheck(self: *Delone, triangles: []const Triangle) !void {
+        for (triangles) |tr| {
+            try self.edges_queue.pushBack(self.allocator, .{ .edge_index = 0, .triangle = tr.index });
+        }
+    }
+
+    fn fixTriangles(self: *Delone) !void {
+        while (self.edges_queue.popFront()) |edge| {
+            try self.fixForEdge(edge);
+        }
+    }
+
+    fn fixForEdge(self: *Delone, edge: Edge) !void {
+        const points = self.points.items;
+
+        const trinagle = self.triangles.items[edge.triangle];
+
+        if (trinagle.neighbors[edge.edge_index] == Triangle.null_index) return;
+        const nei = self.triangles.items[trinagle.neighbors[edge.edge_index]];
+
+        const adjacent = edge.edge_index;
+
+        const b_ind = trinagle.nodes[adjacent];
+        const a_ind = trinagle.nodes[(adjacent + 1) % 3];
+        const d_ind = trinagle.nodes[(adjacent + 2) % 3];
+
+        const nei_adjacent = std.mem.findScalar(u32, &nei.nodes, a_ind).?;
+
+        const c_ind = nei.nodes[(nei_adjacent + 2) % 3];
+
+        const a = points[a_ind];
+        const b = points[b_ind];
+        const d = points[d_ind];
+        const c = points[c_ind];
+
+        const da = d.vecTo(a);
+        const db = d.vecTo(b);
+        const ca = c.vecTo(a);
+        const cb = c.vecTo(b);
+
+        const cos_alpha = da.scalarProduct(db);
+        const cos_beta = cb.scalarProduct(ca);
+
+        const sin_alpha = @abs(da.cross(db));
+        const sin_beta = @abs(cb.cross(ca));
+
+        if (sin_alpha * cos_beta + sin_beta * cos_alpha < 0) {
+            const first: Triangle = .{ .nodes = [_]u32{ d_ind, c_ind, a_ind }, .neighbors = [_]u32{ nei.index, nei.neighbors[(nei_adjacent + 2) % 3], trinagle.neighbors[(adjacent + 1) % 3] }, .index = trinagle.index };
+            const second: Triangle = .{ .nodes = [_]u32{ c_ind, d_ind, b_ind }, .neighbors = [_]u32{ trinagle.index, trinagle.neighbors[(adjacent + 2) % 3], nei.neighbors[(nei_adjacent + 1) % 3] }, .index = nei.index };
+
+            self.triangles.items[first.index] = first;
+            self.triangles.items[second.index] = second;
+
+            self.updateNeighbor(trinagle.neighbors[(adjacent + 2) % 3], trinagle.index, second.index);
+            self.updateNeighbor(nei.neighbors[(nei_adjacent + 2) % 3], nei.index, first.index);
+
+            for (&[_]Triangle{ first, second }) |tr| {
+                for (1..3) |i| {
+                    try self.edges_queue.pushBack(self.allocator, .{ .edge_index = @truncate(i), .triangle = tr.index });
+                }
+            }
+        }
     }
 
     fn updateNeighbor(self: *Delone, nei_index: u32, old_tr: u32, new_tr: u32) void {
@@ -137,7 +251,7 @@ pub const Delone = struct {
                 const a = self.points.items[nodes[a_index]];
                 const b = self.points.items[nodes[b_index % 3]];
 
-                if (point.orientation(a, b) < 0) {
+                if (point.orientationRobust(a, b) < -1e-9) {
                     current_triangle = self.triangles.items[current_triangle.neighbors[a_index]];
                     continue :blk;
                 }
@@ -162,6 +276,19 @@ pub const Delone = struct {
         }
 
         return null;
+    }
+
+    fn triangleCenter(self: Delone, triangle: Triangle) Point2 {
+        var x: f32 = 0;
+        var y: f32 = 0;
+
+        for (triangle.nodes) |index| {
+            const point = self.points.items[index];
+            x += point.x;
+            y += point.y;
+        }
+
+        return .{ .x = x / 3, .y = y / 3 };
     }
 };
 
