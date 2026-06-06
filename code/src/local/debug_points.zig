@@ -13,8 +13,6 @@ const halton = @import("halton.zig");
 
 const intersection = @import("intersection.zig");
 
-const offset = @import("offset_points.zig");
-
 const GeneratedPoints = struct {
     halton: []const Point2,
     obstacles: []const []const Point2,
@@ -29,7 +27,7 @@ pub fn generatePoints(
     seed: u64,
 ) !GeneratedPoints {
     const danger_len = robot_radius * common.constants.LOCAL_GEOMETRY_DANGER_DELTA;
-    const points_edge_offset = robot_radius * common.constants.EDGE_POINTS_OFFSET;
+    _ = edge_density;
 
     const aabb = blob.blob.aabb;
 
@@ -51,19 +49,7 @@ pub fn generatePoints(
         }
     }
 
-    var meshs_points: std.ArrayList([]const Point2) = .empty;
-    for (blob.meshs) |mesh| {
-        var filtred_pts: std.ArrayList(Point2) = .empty;
-        const pts = try offset.generateOffsetPoints(gpa, mesh, danger_len, edge_density);
-        defer gpa.free(pts);
+    const empty_obstacles = try gpa.alloc([]const Point2, 0);
 
-        for (pts) |point| {
-            if (intersection.isValidPoint(point, points_edge_offset, blob, expanded_aabbs)) {
-                try filtred_pts.append(gpa, point);
-            }
-        }
-        try meshs_points.append(gpa, try filtred_pts.toOwnedSlice(gpa));
-    }
-
-    return .{ .halton = try filtred.toOwnedSlice(gpa), .obstacles = try meshs_points.toOwnedSlice(gpa) };
+    return .{ .halton = try filtred.toOwnedSlice(gpa), .obstacles = empty_obstacles };
 }

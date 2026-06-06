@@ -17,6 +17,7 @@ pub const DebugItem = struct {
     point: ?Point2 = null,
     from: ?Point2 = null,
     to: ?Point2 = null,
+    points: ?[]const Point2 = null,
     label: ?[]const u8 = null,
 };
 
@@ -86,6 +87,12 @@ pub const Debugger = struct {
 
     pub fn line(self: *Debugger, p1: Point2, p2: Point2, o: Options) !void {
         try self.append_item(.{ .type = "line", .from = p1, .to = p2, .label = o.label }, o.layout);
+    }
+
+    pub fn mesh(self: *Debugger, mesh_points: []const Point2, o: Options) !void {
+        const allocator = self.arena.allocator();
+        const copy = try allocator.dupe(Point2, mesh_points);
+        try self.append_item(.{ .type = "mesh", .points = copy, .label = o.label }, o.layout);
     }
 };
 
