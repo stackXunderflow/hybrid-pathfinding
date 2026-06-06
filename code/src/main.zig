@@ -116,7 +116,7 @@ fn run() !void {
             tr[j * 3 + 2] = triangle.nodes[2];
         }
 
-        try debugger.triangulation(localGeometry.triang.points.items, tr, .{});
+        try debugger.triangulation(localGeometry.triang.points.items, tr, .{ .layout = "full" });
     }
 
     try output(ginit.io, .{ .robot = parsed.value.robot, .borders = parsed.value.borders, .blobs = globalGeometry.blobs, .debug = debugger.layouts.items });

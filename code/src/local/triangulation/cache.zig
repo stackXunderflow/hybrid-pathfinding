@@ -23,14 +23,22 @@ pub const Cache = struct {
 
     pub fn getCell(self: Cache, point: Point2) u32 {
         const m: f32 = @floatFromInt(self.m);
-        const row: u32 = @intFromFloat(point.y / m);
-        const column: u32 = @intFromFloat(point.x / m);
+        if (@abs(point.y) > 1) return 0;
+        if (@abs(point.x) > 1) return 0;
 
-        return row * self.m + column;
+        const x: u32 = @intFromFloat(@floor(point.x * m));
+        const y: u32 = @intFromFloat(@floor(point.y * m));
+        const clamped_x = std.math.clamp(x, 0, self.m - 1);
+        const clamped_y = std.math.clamp(y, 0, self.m - 1);
+        return clamped_y * self.m + clamped_x;
     }
 
     pub fn getTriangleIndex(self: Cache, point: Point2) u32 {
         return self.cache[self.getCell(point)];
+    }
+
+    pub fn putTriangle(self: *Cache, center: Point2, triangle: u32) void {
+        self.cache[self.getCell(center)] = triangle;
     }
 
     pub fn resize(self: *Cache) !void {
