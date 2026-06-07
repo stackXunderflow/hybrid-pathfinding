@@ -54,7 +54,8 @@ export type DebugItem =
 	| DebugLine
 	| DebugVector
 	| DebugPath
-	| DebugTriangulation;
+	| DebugTriangulation
+	| DebugGraph;
 
 export interface DebugPoint {
 	type: 'point';
@@ -93,5 +94,18 @@ export interface DebugTriangulation {
 	type: 'triangulation';
 	points: Point[];
 	triangles: number[];
+	label?: string;
+}
+
+export interface DebugGraphEdge {
+	from: number;
+	to: number;
+	weight: number;
+}
+
+export interface DebugGraph {
+	type: 'graph';
+	points: Point[];
+	edges: DebugGraphEdge[];
 	label?: string;
 }

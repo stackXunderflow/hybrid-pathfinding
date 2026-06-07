@@ -144,20 +144,43 @@ pub const Delone = struct {
             }
         }
 
-        var tr: std.ArrayList(Triangle) = try .initCapacity(gpa, delone.triangles.items.len);
-        blk: for (delone.triangles.items) |triangle| {
-            for (triangle.nodes) |node| {
-                if (node >= delone.points.items.len - 3) {
-                    continue :blk;
-                }
-            }
-            tr.appendAssumeCapacity(triangle);
-        }
-
         return .{
             .points = try normalization.denormalize(gpa, delone.points, aabb),
-            .triangles = try tr.toOwnedSlice(gpa),
+            .triangles = try delone.resultTriangles(),
         };
+    }
+
+    fn resultTriangles(self: Delone) ![]const Triangle {
+        const gpa = self.allocator;
+
+        var filtered: std.ArrayList(Triangle) = try .initCapacity(gpa, self.triangles.items.len);
+        blk: for (self.triangles.items) |triangle| {
+            for (triangle.nodes) |node| {
+                if (node >= self.points.items.len - 3) continue :blk;
+            }
+            try filtered.append(gpa, triangle);
+        }
+
+        const remap = try gpa.alloc(u32, self.triangles.items.len);
+        defer gpa.free(remap);
+        @memset(remap, Triangle.null_index);
+
+        for (filtered.items, 0..) |tri, new_i| {
+            remap[tri.index] = @intCast(new_i);
+        }
+
+        for (filtered.items) |*tri| {
+            for (&tri.neighbors) |*nei| {
+                if (nei.* == Triangle.null_index) continue;
+                nei.* = remap[nei.*];
+            }
+        }
+
+        for (filtered.items, 0..) |*tri, new_i| {
+            tri.index = @intCast(new_i);
+        }
+
+        return try filtered.toOwnedSlice(gpa);
     }
 
     fn addToCache(self: *Delone, triangles: []const Triangle) !void {

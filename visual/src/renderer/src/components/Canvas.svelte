@@ -273,6 +273,18 @@
 			ctx.setLineDash([]);
 			if (layers.vertices) item.points.forEach((point) => drawPoint(point, 2.5, color, true));
 			drawLabel(item.label, item.points[0], color);
+		} else if (item.type === 'graph') {
+			ctx.strokeStyle = color;
+			ctx.lineWidth = 1.5;
+			for (const edge of item.edges) {
+				const from = item.points[edge.from];
+				const to = item.points[edge.to];
+				if (!from || !to) continue;
+				drawPolyline([from, to], false);
+				ctx.stroke();
+			}
+			if (layers.vertices) item.points.forEach((point) => drawPoint(point, 3, color, true));
+			drawLabel(item.label, item.points[0], color);
 		}
 		ctx.setLineDash([]);
 	}

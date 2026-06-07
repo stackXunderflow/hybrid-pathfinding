@@ -101,13 +101,14 @@ fn run() !void {
         const layer_name = std.fmt.allocPrint(allocator, "blob_{d}_halton", .{i}) catch continue;
         defer allocator.free(layer_name);
 
-        const localGeometry = try local.localGeometry(
+        var localGeometry = try local.localGeometry(
             ginit.gpa,
             blob,
             parsed.value.robot.radius,
             0.001,
             42,
         );
+        defer localGeometry.deinit(ginit.gpa);
 
         const tr = try ginit.gpa.alloc(u32, localGeometry.triang.triangles.len * 3);
         for (localGeometry.triang.triangles, 0..) |triangle, j| {
@@ -117,6 +118,13 @@ fn run() !void {
         }
 
         try debugger.triangulation(localGeometry.triang.points.items, tr, .{ .layout = "full" });
+
+        const graph_layer = std.fmt.allocPrint(allocator, "blob_{d}_graph", .{i}) catch continue;
+        defer allocator.free(graph_layer);
+
+        const graph_edges = try local.semi_dual_graph.collectEdges(ginit.gpa, localGeometry.graph);
+        defer ginit.gpa.free(graph_edges);
+        try debugger.graph(localGeometry.graph.points, graph_edges, .{ .layout = graph_layer });
     }
 
     try output(ginit.io, .{ .robot = parsed.value.robot, .borders = parsed.value.borders, .blobs = globalGeometry.blobs, .debug = debugger.layouts.items });
