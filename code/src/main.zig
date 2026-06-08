@@ -104,10 +104,14 @@ fn run() !void {
     const local_start = std.Io.Timestamp.now(ginit.io, clock);
     const localGeometry = try allocator.alloc(local.LocalGeometry, globalGeometry.blobs.len);
 
-    const density = 0.001;
+    const density = common.constants.POINTS_DENSITY_PER_ROBOT_AREA / (std.math.pi * robot.radius * robot.radius);
+    std.debug.print("DENSITY: {}", .{density});
 
     for (globalGeometry.blobs, 0..) |blob, i| {
         localGeometry[i] = try local.localGeometry(ginit.gpa, blob, robot, density, 42);
+        for (localGeometry[i].triang.points.items) |p| {
+            try debugger.point(p, .{});
+        }
     }
     defer {
         for (localGeometry) |lg| {

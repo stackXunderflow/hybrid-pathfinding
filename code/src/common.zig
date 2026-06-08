@@ -5,6 +5,7 @@ pub const constants = struct {
     pub const F32_EPSILON = 0.001;
     pub const LOCAL_GEOMETRY_DANGER_DELTA: f32 = 1.051;
     pub const EDGE_POINTS_OFFSET: f32 = 1.049;
+    pub const POINTS_DENSITY_PER_ROBOT_AREA = 3;
 };
 
 pub const SceneBorders = struct {

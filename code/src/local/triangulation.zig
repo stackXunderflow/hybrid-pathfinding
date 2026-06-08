@@ -312,8 +312,14 @@ pub const Delone = struct {
 
 pub fn findTriangle(points: []const Point2, triangles: []const Triangle, point: Point2, start: Triangle) Triangle {
     var current_triangle = start;
+    var steps: usize = 0;
 
     blk: while (true) {
+        if (steps > triangles.len) {
+            return findTriangleLinear(points, triangles, point) orelse current_triangle;
+        }
+        steps += 1;
+
         for (0..3, 1..4) |a_index, b_index| {
             const nodes = current_triangle.nodes;
             const a = points[nodes[a_index]];
@@ -328,6 +334,22 @@ pub fn findTriangle(points: []const Point2, triangles: []const Triangle, point: 
         break :blk;
     }
     return current_triangle;
+}
+
+fn findTriangleLinear(points: []const Point2, triangles: []const Triangle, point: Point2) ?Triangle {
+    blk: for (triangles) |triangle| {
+        for (0..3, 1..4) |a_index, b_index| {
+            const nodes = triangle.nodes;
+            const a = points[nodes[a_index]];
+            const b = points[nodes[b_index % 3]];
+
+            if (point.orientationRobust(a, b) < -1e-9) continue :blk;
+        }
+
+        return triangle;
+    }
+
+    return null;
 }
 
 fn findUniqueIndex(values: [3]u32, a: u32, b: u32) usize {
