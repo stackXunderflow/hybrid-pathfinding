@@ -13,8 +13,36 @@ const dbg = @import("dbg.zig");
 const Debugger = dbg.Debugger;
 const global = @import("global.zig");
 const BlobContent = global.BlobContent;
+const local = @import("local.zig");
+const intersections = @import("pathfinding/intersections.zig");
+const HullIntersection = intersections.HullIntersection;
+const shortest_path = @import("pathfinding/shortest_path.zig");
 
-pub fn findPath(gpa: Allocator, debugger: *Debugger, robot: Robot, blobs_content: []const BlobContent) !void {
+const Path = struct {
+    points: []const Point2,
+    types: []const PointType,
+};
+
+const Result = union(enum) {
+    start_blocked,
+    end_blocked,
+    no_path,
+    ok,
+};
+
+const PointType = union(enum) {
+    robot,
+    hull: u32,
+    local: u32,
+};
+
+pub fn findPath(
+    gpa: Allocator,
+    debugger: *Debugger,
+    robot: Robot,
+    global_geometry: global.GlobalGeometry,
+    local_geometries: []const local.LocalGeometry,
+) !Result {
     var arena: ArenaAllocator = .init(gpa);
     defer arena.deinit();
     const allocator = arena.allocator();
@@ -23,26 +51,107 @@ pub fn findPath(gpa: Allocator, debugger: *Debugger, robot: Robot, blobs_content
     const direction = try vec.normilize();
     const length = vec.len();
 
-    const intersections = try hullIntersections(allocator, debugger, origin, direction, length, blobs_content);
-    defer allocator.free(intersections);
+    const hull_intersections = try intersections.hullIntersections(allocator, debugger, origin, direction, length, global_geometry.blobs);
+    defer allocator.free(hull_intersections);
 
-    const path = try buildPath(allocator, origin, direction, robot.end, intersections);
-    defer allocator.free(path);
+    std.log.debug("{any}", .{hull_intersections});
 
-    for (path[0 .. path.len - 1], path[1..]) |from, to| {
+    if (hull_intersections.len == 0) {
+        try debugger.line(robot.start, robot.end, .{ .layout = "direct path" });
+        return .ok;
+    }
+
+    if (hull_intersections.len == 1 and hull_intersections[0].in == null and hull_intersections[0].out == null) {
+        return try singleBlobStrategy(allocator, debugger, robot, local_geometries[hull_intersections[0].index]);
+    }
+    if (hull_intersections.len > 0) {
+        const first = hull_intersections[0];
+        const last = hull_intersections[hull_intersections.len - 1];
+
+        if (first.in == null) {
+            const local_geometry = local_geometries[first.index];
+            const info = local_geometry.locatePoint(robot.start) orelse unreachable;
+            const graph = local_geometry.graph;
+
+            const out = first.out orelse unreachable;
+            const out_point = origin.plus(direction.scale(out.t));
+
+            switch (info) {
+                .blocked => try debugger.point(robot.start, .{ .label = "BLOCKED" }),
+
+                .some => |av| {
+                    const nearest = graph.findNearestHullPoint(out_point);
+
+                    const path = (try shortest_path.find(allocator, local_geometry, av.graph_node, nearest)) orelse return .start_blocked;
+                    try dbgPath(debugger, path.points, graph.points, "local start");
+                },
+            }
+        }
+
+        if (last.out == null) {
+            const local_geometry = local_geometries[last.index];
+            const info = local_geometry.locatePoint(robot.end) orelse unreachable;
+            const graph = local_geometry.graph;
+
+            const in = last.in orelse unreachable;
+            const in_point = origin.plus(direction.scale(in.t));
+
+            switch (info) {
+                .blocked => try debugger.point(robot.end, .{ .label = "BLOCKED" }),
+
+                .some => |av| {
+                    const nearest = graph.findNearestHullPoint(in_point);
+
+                    const path = (try shortest_path.find(allocator, local_geometry, av.graph_node, nearest)) orelse return .end_blocked;
+                    try dbgPath(debugger, path.points, graph.points, "local end");
+                },
+            }
+        }
+    }
+
+    const path = try buildPath(allocator, debugger, origin, direction, robot.end, hull_intersections, local_geometries);
+
+    for (path.points[0 .. path.points.len - 1], path.points[1..]) |from, to| {
         try debugger.line(from, to, .{ .layout = "global naive pf" });
     }
 
-    const simplified = try simplifyNaivePath(allocator, debugger, path, blobs_content);
-    defer allocator.free(simplified);
+    const simplified = try simplifyNaivePath(allocator, debugger, path, global_geometry.blobs);
 
-    for (simplified[0 .. simplified.len - 1], simplified[1..]) |from, to| {
+    for (simplified.points[0 .. simplified.points.len - 1], simplified.points[1..]) |from, to| {
         try debugger.line(from, to, .{ .layout = "global simplified pf" });
+    }
+
+    return .ok;
+}
+
+fn singleBlobStrategy(allocator: Allocator, debugger: *Debugger, robot: Robot, geometry: local.LocalGeometry) !Result {
+    const from = geometry.locatePoint(robot.start) orelse unreachable;
+    const to = geometry.locatePoint(robot.end) orelse unreachable;
+
+    if (from == .blocked) {
+        return .start_blocked;
+    }
+
+    if (to == .blocked) {
+        return .end_blocked;
+    }
+
+    const path = (try shortest_path.find(allocator, geometry, from.some.graph_node, to.some.graph_node)) orelse return .no_path;
+
+    try dbgPath(debugger, path.points, geometry.graph.points, "single blob path");
+
+    return .ok;
+}
+
+fn dbgPath(debugger: *Debugger, path: []const u32, points: []const Point2, layout: []const u8) !void {
+    for (path[0 .. path.len - 1], path[1..]) |f, t| {
+        try debugger.line(points[f], points[t], .{ .layout = layout });
     }
 }
 
-fn simplifyNaivePath(gpa: Allocator, debugger: *Debugger, path: []const Point2, blobs_content: []const BlobContent) ![]const Point2 {
-    var simplified: std.ArrayList(Point2) = .fromOwnedSlice(try gpa.dupe(Point2, path));
+fn simplifyNaivePath(gpa: Allocator, debugger: *Debugger, path: Path, blobs_content: []const BlobContent) !Path {
+    var simplified: std.ArrayList(Point2) = .fromOwnedSlice(try gpa.dupe(Point2, path.points));
+    var simplified_types: std.ArrayList(PointType) = .fromOwnedSlice(try gpa.dupe(PointType, path.types));
 
     blk: while (true) {
         const total = simplified.items.len;
@@ -50,6 +159,12 @@ fn simplifyNaivePath(gpa: Allocator, debugger: *Debugger, path: []const Point2, 
             break;
         }
         for (0..total - 2, 2..) |near, far| {
+            if (simplified_types.items[near] == .hull and simplified_types.items[far] == .hull) {
+                if (simplified_types.items[near].hull == simplified_types.items[far].hull) {
+                    continue;
+                }
+            }
+
             const near_point = simplified.items[near];
             const far_point = simplified.items[far];
 
@@ -57,11 +172,12 @@ fn simplifyNaivePath(gpa: Allocator, debugger: *Debugger, path: []const Point2, 
             const length = vec.len();
             const direction = try vec.normilize();
 
-            const intersections = try hullIntersections(gpa, debugger, near_point, direction, length - 1, blobs_content);
-            defer gpa.free(intersections);
+            const hull_intersections = try intersections.hullIntersections(gpa, debugger, near_point, direction, length - 1, blobs_content);
+            defer gpa.free(hull_intersections);
 
-            if (intersections.len == 0 or (intersections.len == 1 and std.math.approxEqAbs(f32, intersections[0].in.t, intersections[0].out.t, F32_EPSILON))) {
+            if (hull_intersections.len == 0 or (hull_intersections.len == 1 and hull_intersections[0].in == null and hull_intersections[0].out == null)) {
                 _ = simplified.orderedRemove(near + 1);
+                _ = simplified_types.orderedRemove(near + 1);
                 continue :blk;
             }
         }
@@ -69,36 +185,49 @@ fn simplifyNaivePath(gpa: Allocator, debugger: *Debugger, path: []const Point2, 
         break;
     }
 
-    return try simplified.toOwnedSlice(gpa);
+    return .{
+        .points = try simplified.toOwnedSlice(gpa),
+        .types = try simplified_types.toOwnedSlice(gpa),
+    };
 }
 
-fn buildPath(gpa: Allocator, origin: Point2, direction: Vec2, end: Point2, intersections: []const HullIntersection) ![]const Point2 {
+fn buildPath(gpa: Allocator, debugger: *Debugger, origin: Point2, direction: Vec2, end: Point2, hull_intersections: []const HullIntersection, local_geometries: []const local.LocalGeometry) !Path {
     var path: std.ArrayList(Point2) = .empty;
     try path.append(gpa, origin);
+    var points_type: std.ArrayList(PointType) = .empty;
+    try points_type.append(gpa, .robot);
 
-    for (intersections) |intersection| {
+    for (hull_intersections) |intersection| {
         const blob = intersection.blob;
 
-        const in = origin.plus(direction.scale(intersection.in.t));
-        const out = origin.plus(direction.scale(intersection.out.t));
+        const iin = intersection.in orelse continue;
+        const iout = intersection.out orelse continue;
+
+        const in = origin.plus(direction.scale(iin.t));
+        const out = origin.plus(direction.scale(iout.t));
+
+        const geometry = local_geometries[intersection.index];
+        const lpath = try shortest_path.find(gpa, geometry, geometry.graph.findNearestHullPoint(in), geometry.graph.findNearestHullPoint(out));
+        try dbgPath(debugger, lpath.?.points, geometry.graph.points, "alternative");
 
         try path.append(gpa, in);
+        try points_type.append(gpa, .{ .hull = intersection.index });
 
-        const cut_a = in.magnitude(blob.points[intersection.in.index]);
-        const cut_b = out.magnitude(blob.points[intersection.out.index]);
-        const path_a = hullLen(blob, intersection.in.index, intersection.out.index);
-        const path_b = hullLen(blob, intersection.out.index, intersection.in.index);
+        const cut_a = in.magnitude(blob.points[iin.index]);
+        const cut_b = out.magnitude(blob.points[iout.index]);
+        const path_a = hullLen(blob, iin.index, iout.index);
+        const path_b = hullLen(blob, iout.index, iin.index);
 
         const total_points = blob.points.len;
         var current_index: usize = undefined;
         var to_index: usize = undefined;
         var is_path_b = false;
         if (path_a - cut_a + cut_b < path_b - cut_b + cut_a) {
-            current_index = intersection.in.index;
-            to_index = intersection.out.index;
+            current_index = iin.index;
+            to_index = iout.index;
         } else {
-            current_index = intersection.in.index + total_points;
-            to_index = intersection.out.index;
+            current_index = iin.index + total_points;
+            to_index = iout.index;
             is_path_b = true;
         }
 
@@ -113,6 +242,7 @@ fn buildPath(gpa: Allocator, origin: Point2, direction: Vec2, end: Point2, inter
             }
             const next_point = blob.points[current_index % total_points];
             try path.append(gpa, next_point);
+            try points_type.append(gpa, .{ .hull = intersection.index });
 
             if (is_path_b and ((current_index - 1) % total_points == to_index)) {
                 break;
@@ -120,11 +250,13 @@ fn buildPath(gpa: Allocator, origin: Point2, direction: Vec2, end: Point2, inter
         }
 
         try path.append(gpa, out);
+        try points_type.append(gpa, .{ .hull = intersection.index });
     }
 
     try path.append(gpa, end);
+    try points_type.append(gpa, .robot);
 
-    return path.toOwnedSlice(gpa);
+    return .{ .points = try path.toOwnedSlice(gpa), .types = try points_type.toOwnedSlice(gpa) };
 }
 
 fn hullLen(hull: Blob, from_index: usize, to_index: usize) f32 {
@@ -142,105 +274,4 @@ fn hullLen(hull: Blob, from_index: usize, to_index: usize) f32 {
     }
 
     return len;
-}
-
-fn sortByTin(_: void, a: HullIntersection, b: HullIntersection) bool {
-    return a.in.t < b.in.t;
-}
-
-fn hullIntersections(allocator: Allocator, debugger: *Debugger, origin: Point2, direction: Vec2, length: f32, blobs_content: []const BlobContent) ![]const HullIntersection {
-    var result: std.ArrayList(HullIntersection) = .empty;
-
-    for (blobs_content) |blob_content| {
-        const blob = blob_content.blob;
-        if (intersectAABB(origin, direction, length, blob.aabb)) {
-            const intersection_result = try cyrusBeckIntersection(debugger, origin, direction, length, blob);
-            if (intersection_result) |intersection| {
-                try result.append(allocator, intersection);
-            }
-        }
-    }
-
-    std.mem.sort(HullIntersection, result.items, {}, sortByTin);
-
-    return try result.toOwnedSlice(allocator);
-}
-
-const IndexPoint = struct {
-    index: usize,
-    t: f32,
-};
-
-const HullIntersection = struct {
-    blob: Blob,
-    in: IndexPoint,
-    out: IndexPoint,
-};
-
-fn cyrusBeckIntersection(debugger: *Debugger, origin: Point2, direction: Vec2, length: f32, blob: Blob) !?HullIntersection {
-    var tin: f32 = 0;
-    var tout = std.math.inf(f32);
-    var index_in: usize = 0;
-    var index_out: usize = 0;
-
-    for (0..blob.points.len, 1..) |current_index, next_index| {
-        const current = blob.points[current_index];
-        const next = blob.points[next_index % blob.points.len];
-        const vec_to_point = current.vecTo(origin);
-
-        const inner_vec = try next.vecTo(current).rotateRight90();
-        const inner_normal = try inner_vec.normilize();
-
-        const dn = direction.scalarProduct(inner_normal);
-        const wn = vec_to_point.scalarProduct(inner_normal);
-
-        const t = -(wn / dn);
-
-        if (dn > 0 and t > tin) {
-            tin = t;
-            index_in = current_index;
-        }
-
-        if (dn < 0 and t < tout) {
-            tout = t;
-            index_out = current_index;
-        }
-
-        if (tin > tout) {
-            return null;
-        }
-
-        if (tin > length) {
-            return null;
-        }
-    }
-
-    const in = origin.plus(direction.scale(tin));
-    const out = origin.plus(direction.scale(tout));
-
-    try debugger.point(in, .{ .layout = "pf points" });
-    try debugger.point(out, .{ .layout = "pf points" });
-
-    return .{ .blob = blob, .in = .{ .index = index_in, .t = tin }, .out = .{ .index = index_out, .t = tout } };
-}
-
-fn intersectAABB(origin: Point2, direction: Vec2, length: f32, aabb: AABB) bool {
-    const tx1 = (aabb.Xmin - origin.x) / direction.x;
-    const tx2 = (aabb.Xmax - origin.x) / direction.x;
-    const ty1 = (aabb.Ymin - origin.y) / direction.y;
-    const ty2 = (aabb.Ymax - origin.y) / direction.y;
-
-    const txmin = @min(tx1, tx2);
-    const txmax = @max(tx1, tx2);
-    const tymin = @min(ty1, ty2);
-    const tymax = @max(ty1, ty2);
-
-    const tnear = @max(txmin, tymin);
-    const tfar = @min(txmax, tymax);
-
-    if (tnear > tfar) return false;
-    if (tfar < 0.0) return false;
-    if (tnear > length) return false;
-
-    return true;
 }

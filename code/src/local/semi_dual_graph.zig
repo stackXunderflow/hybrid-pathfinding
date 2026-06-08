@@ -11,6 +11,7 @@ const dbg = @import("../dbg.zig");
 const triangulation = @import("triangulation.zig");
 const Triangle = triangulation.Triangle;
 const Triangulation = triangulation.Triangulation;
+
 pub const Connection = struct {
     to: u32,
     weight: f32,
@@ -18,6 +19,8 @@ pub const Connection = struct {
 
 pub const Graph = struct {
     points: []const Point2,
+    boundary_count: u32,
+    triangle_to_point: []const u32,
     connections: std.AutoHashMapUnmanaged(u32, []const Connection),
 
     pub fn deinit(self: *Graph, gpa: Allocator) void {
@@ -28,9 +31,24 @@ pub const Graph = struct {
         self.connections.deinit(gpa);
         gpa.free(self.points);
     }
+
+    pub fn findNearestHullPoint(self: Graph, point: Point2) u32 {
+        var nearest: u32 = 0;
+        var min_dist = std.math.floatMax(f32);
+
+        for (self.points[0..self.boundary_count], 0..) |hull_point, i| {
+            const new = hull_point.magnitude(point);
+            if (new < min_dist) {
+                min_dist = new;
+                nearest = @truncate(i);
+            }
+        }
+
+        return nearest;
+    }
 };
 
-const null_node = std.math.maxInt(u32);
+pub const null_node = std.math.maxInt(u32);
 
 pub fn collectEdges(gpa: Allocator, graph: Graph) ![]const dbg.GraphEdge {
     var count: usize = 0;
@@ -56,7 +74,6 @@ pub fn build(gpa: Allocator, triang: Triangulation, blob: BlobContent, expanded_
     const boundary_count: u32 = @intCast(collection.boundary - collection.obstacles);
 
     var center_indices = try gpa.alloc(u32, triang.triangles.len);
-    defer gpa.free(center_indices);
     @memset(center_indices, null_node);
 
     var valid_center_count: u32 = 0;
@@ -139,6 +156,8 @@ pub fn build(gpa: Allocator, triang: Triangulation, blob: BlobContent, expanded_
 
     return .{
         .points = graph_points,
+        .boundary_count = boundary_count,
+        .triangle_to_point = center_indices,
         .connections = connections,
     };
 }

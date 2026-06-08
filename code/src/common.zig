@@ -2,7 +2,7 @@ const std = @import("std");
 
 pub const constants = struct {
     pub const GLOBAL_GEOMETRY_HULL_DELTA: f32 = 1.05;
-    pub const F32_EPSILON = 0.000001;
+    pub const F32_EPSILON = 0.001;
     pub const LOCAL_GEOMETRY_DANGER_DELTA: f32 = 1.051;
     pub const EDGE_POINTS_OFFSET: f32 = 1.049;
 };

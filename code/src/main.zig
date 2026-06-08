@@ -27,7 +27,7 @@ pub fn readScene(allocator: Allocator, io: std.Io, path: []const u8) !std.json.P
     const file = try std.Io.Dir.cwd().openFile(io, path, .{ .mode = .read_only });
     var json: std.Io.Writer.Allocating = .init(allocator);
     defer json.deinit();
-    var buffer: [128]u8 = undefined;
+    var buffer: [4096]u8 = undefined;
     var reader = file.reader(io, &buffer);
     _ = try reader.interface.streamRemaining(&json.writer);
 
@@ -91,43 +91,44 @@ fn run() !void {
     defer debugger.deinit();
 
     const parsed = try readScene(allocator, ginit.io, config.scene_path);
+    const robot = parsed.value.robot;
 
-    const globalGeometry = try global.globalGeometry(ginit.gpa, parsed.value.meshs, parsed.value.robot.radius);
+    const clock = std.Io.Clock.awake;
+
+    const global_start = std.Io.Timestamp.now(ginit.io, clock);
+    const globalGeometry = try global.globalGeometry(ginit.gpa, parsed.value.meshs, robot.radius);
     defer globalGeometry.arena.deinit();
+    const global_end = std.Io.Timestamp.now(ginit.io, clock);
+    const global_elapsed = global_start.durationTo(global_end);
 
-    try pathfinding.findPath(ginit.gpa, &debugger, parsed.value.robot, globalGeometry.blobs);
+    const local_start = std.Io.Timestamp.now(ginit.io, clock);
+    const localGeometry = try allocator.alloc(local.LocalGeometry, globalGeometry.blobs.len);
+
+    const density = 0.001;
 
     for (globalGeometry.blobs, 0..) |blob, i| {
-        const layer_name = std.fmt.allocPrint(allocator, "blob_{d}_halton", .{i}) catch continue;
-        defer allocator.free(layer_name);
-
-        var localGeometry = try local.localGeometry(
-            ginit.gpa,
-            blob,
-            parsed.value.robot.radius,
-            0.001,
-            42,
-        );
-        defer localGeometry.deinit(ginit.gpa);
-
-        const tr = try ginit.gpa.alloc(u32, localGeometry.triang.triangles.len * 3);
-        for (localGeometry.triang.triangles, 0..) |triangle, j| {
-            tr[j * 3] = triangle.nodes[0];
-            tr[j * 3 + 1] = triangle.nodes[1];
-            tr[j * 3 + 2] = triangle.nodes[2];
-        }
-
-        try debugger.triangulation(localGeometry.triang.points.items, tr, .{ .layout = "full" });
-
-        const graph_layer = std.fmt.allocPrint(allocator, "blob_{d}_graph", .{i}) catch continue;
-        defer allocator.free(graph_layer);
-
-        const graph_edges = try local.semi_dual_graph.collectEdges(ginit.gpa, localGeometry.graph);
-        defer ginit.gpa.free(graph_edges);
-        try debugger.graph(localGeometry.graph.points, graph_edges, .{ .layout = graph_layer });
+        localGeometry[i] = try local.localGeometry(ginit.gpa, blob, robot, density, 42);
     }
+    defer {
+        for (localGeometry) |lg| {
+            lg.arena.deinit();
+        }
+    }
+    const local_end = std.Io.Timestamp.now(ginit.io, clock);
+    const local_elapsed = local_start.durationTo(local_end);
 
-    try output(ginit.io, .{ .robot = parsed.value.robot, .borders = parsed.value.borders, .blobs = globalGeometry.blobs, .debug = debugger.layouts.items });
+    const pf_start = std.Io.Timestamp.now(ginit.io, clock);
+    const pf_result = try pathfinding.findPath(ginit.gpa, &debugger, robot, globalGeometry, localGeometry);
+    const pf_end = std.Io.Timestamp.now(ginit.io, clock);
+    const pf_elapsed = pf_start.durationTo(pf_end);
+
+    std.log.info("PF RESULT: {}", .{pf_result});
+
+    std.log.debug("global: {d:.6}s", .{@as(f64, @floatFromInt(global_elapsed.nanoseconds)) / @as(f64, std.time.ns_per_s)});
+    std.log.debug("local: {d:.6}s", .{@as(f64, @floatFromInt(local_elapsed.nanoseconds)) / @as(f64, std.time.ns_per_s)});
+    std.log.debug("pathfinding: {d:.6}s", .{@as(f64, @floatFromInt(pf_elapsed.nanoseconds)) / @as(f64, std.time.ns_per_s)});
+
+    try output(ginit.io, .{ .robot = robot, .borders = parsed.value.borders, .blobs = globalGeometry.blobs, .debug = debugger.layouts.items });
 }
 
 test {

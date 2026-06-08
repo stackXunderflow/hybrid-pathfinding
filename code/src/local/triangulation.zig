@@ -54,12 +54,13 @@ pub const Delone = struct {
             .edges_queue = .empty,
         };
 
-        std.debug.print("{any} \n\n", .{delone.points});
+        defer delone.cache.deinit();
+        defer delone.edges_queue.deinit(gpa);
+
         for (0..delone.points.items.len - 3) |index| {
             const point = delone.points.items[index];
-            const triangle = delone.findTriangle(point);
+            const triangle = delone.findTriangleCache(point);
 
-            // CHECK 1
             var too_close = false;
             for (triangle.nodes) |node_idx| {
                 const node_pt = delone.points.items[node_idx];
@@ -215,7 +216,8 @@ pub const Delone = struct {
         const a_ind = trinagle.nodes[(adjacent + 1) % 3];
         const d_ind = trinagle.nodes[(adjacent + 2) % 3];
 
-        const nei_adjacent = std.mem.findScalar(u32, &nei.nodes, a_ind).?;
+        const nei_adjacent = std.mem.findScalar(u32, &nei.nodes, a_ind) orelse return;
+        if (nei.nodes[(nei_adjacent + 1) % 3] != b_ind) return;
 
         const c_ind = nei.nodes[(nei_adjacent + 2) % 3];
 
@@ -232,10 +234,19 @@ pub const Delone = struct {
         const cos_alpha = da.scalarProduct(db);
         const cos_beta = cb.scalarProduct(ca);
 
-        const sin_alpha = @abs(da.cross(db));
-        const sin_beta = @abs(cb.cross(ca));
+        const should_flip = if (cos_alpha < 0 and cos_beta < 0)
+            true
+        else if (cos_alpha >= 0 and cos_beta >= 0)
+            false
+        else blk: {
+            const sin_alpha = @abs(da.cross(db));
+            const sin_beta = @abs(cb.cross(ca));
+            break :blk sin_alpha * cos_beta + sin_beta * cos_alpha < 0;
+        };
 
-        if (sin_alpha * cos_beta + sin_beta * cos_alpha < 0) {
+        if (should_flip) {
+            if (a.orientationRobust(d, c) <= 1e-9 or b.orientationRobust(c, d) <= 1e-9) return;
+
             const first: Triangle = .{ .nodes = [_]u32{ d_ind, c_ind, a_ind }, .neighbors = [_]u32{ nei.index, nei.neighbors[(nei_adjacent + 2) % 3], trinagle.neighbors[(adjacent + 1) % 3] }, .index = trinagle.index };
             const second: Triangle = .{ .nodes = [_]u32{ c_ind, d_ind, b_ind }, .neighbors = [_]u32{ trinagle.index, trinagle.neighbors[(adjacent + 2) % 3], nei.neighbors[(nei_adjacent + 1) % 3] }, .index = nei.index };
 
@@ -263,24 +274,10 @@ pub const Delone = struct {
         }
     }
 
-    fn findTriangle(self: *Delone, point: Point2) Triangle {
-        var current_triangle = self.triangles.items[self.cache.getTriangleIndex(point)];
+    fn findTriangleCache(self: *Delone, point: Point2) Triangle {
+        const start = self.triangles.items[self.cache.getTriangleIndex(point)];
 
-        blk: while (true) {
-            for (0..3, 1..4) |a_index, b_index| {
-                const nodes = current_triangle.nodes;
-                const a = self.points.items[nodes[a_index]];
-                const b = self.points.items[nodes[b_index % 3]];
-
-                if (point.orientationRobust(a, b) < -1e-9) {
-                    current_triangle = self.triangles.items[current_triangle.neighbors[a_index]];
-                    continue :blk;
-                }
-            }
-
-            break :blk;
-        }
-        return current_triangle;
+        return findTriangle(self.points.items, self.triangles.items, point, start);
     }
 
     fn checkOnEdge(self: Delone, triangle: Triangle, point: Point2) ?u32 {
@@ -312,6 +309,26 @@ pub const Delone = struct {
         return .{ .x = x / 3, .y = y / 3 };
     }
 };
+
+pub fn findTriangle(points: []const Point2, triangles: []const Triangle, point: Point2, start: Triangle) Triangle {
+    var current_triangle = start;
+
+    blk: while (true) {
+        for (0..3, 1..4) |a_index, b_index| {
+            const nodes = current_triangle.nodes;
+            const a = points[nodes[a_index]];
+            const b = points[nodes[b_index % 3]];
+
+            if (point.orientationRobust(a, b) < -1e-9) {
+                current_triangle = triangles[current_triangle.neighbors[a_index]];
+                continue :blk;
+            }
+        }
+
+        break :blk;
+    }
+    return current_triangle;
+}
 
 fn findUniqueIndex(values: [3]u32, a: u32, b: u32) usize {
     for (values, 0..) |v, i| {

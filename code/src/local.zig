@@ -1,25 +1,46 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
+const ArenaAllocator = std.heap.ArenaAllocator;
 
 const common = @import("common.zig");
 const Point2 = common.Point2;
 const AABB = common.AABB;
+const Blob = common.Blob;
+const Robot = common.Robot;
 const dbg = @import("dbg.zig");
 const global = @import("global.zig");
 const BlobContent = global.BlobContent;
+const increase_area = @import("global/increase_area.zig");
+const blob_boundary = @import("local/blob_boundary_points.zig");
 const halton = @import("local/halton.zig");
 const intersection = @import("local/intersection.zig");
-const blob_boundary = @import("local/blob_boundary_points.zig");
-const increase_area = @import("global/increase_area.zig");
-const triangulation = @import("local/triangulation.zig");
 pub const semi_dual_graph = @import("local/semi_dual_graph.zig");
+const triangulation = @import("local/triangulation.zig");
+
+pub const PointInfo = union(enum) {
+    blocked,
+    some: struct { triangle: u32, graph_node: u32 },
+};
 
 pub const LocalGeometry = struct {
+    arena: ArenaAllocator,
+    blob: BlobContent,
     triang: triangulation.Triangulation,
     graph: semi_dual_graph.Graph,
 
     pub fn deinit(self: *LocalGeometry, gpa: Allocator) void {
         self.graph.deinit(gpa);
+    }
+
+    pub fn locatePoint(self: LocalGeometry, point: Point2) ?PointInfo {
+        if (!self.blob.blob.containsPoint(point)) {
+            return null;
+        }
+
+        const triangle = triangulation.findTriangle(self.triang.points.items, self.triang.triangles, point, self.triang.triangles[0]);
+        const node = self.graph.triangle_to_point[triangle.index];
+
+        return if (node == semi_dual_graph.null_node) .blocked else .{ .some = .{ .triangle = triangle.index, .graph_node = node } };
     }
 };
 
@@ -34,24 +55,29 @@ pub const PointsCollection = struct {
 pub fn localGeometry(
     gpa: Allocator,
     blob: BlobContent,
-    robot_radius: f32,
+    robot: Robot,
     density: f32,
     seed: u64,
 ) !LocalGeometry {
-    const danger_len = robot_radius * common.constants.LOCAL_GEOMETRY_DANGER_DELTA;
-    const expanded_aabbs = try gpa.alloc(AABB, blob.meshs.len);
-    defer gpa.free(expanded_aabbs);
+    var arena: ArenaAllocator = .init(gpa);
+    const allocator = arena.allocator();
+
+    const danger_len = robot.radius * common.constants.LOCAL_GEOMETRY_DANGER_DELTA;
+    const expanded_aabbs = try allocator.alloc(AABB, blob.meshs.len);
+    defer allocator.free(expanded_aabbs);
     for (blob.meshs, 0..) |mesh, i| {
         expanded_aabbs[i] = AABB.fromPoints(mesh.points).expand(danger_len);
     }
 
     const edge_density = std.math.sqrt(density);
-    const points = try generatePoints(gpa, blob, expanded_aabbs, danger_len, density, edge_density, seed);
+    const points = try generatePoints(allocator, blob, expanded_aabbs, danger_len, density, edge_density, seed);
 
-    const triang = try triangulation.Delone.run(gpa, points, blob.blob.aabb);
-    const graph = try semi_dual_graph.build(gpa, triang, blob, expanded_aabbs, danger_len);
+    const triang = try triangulation.Delone.run(allocator, points, blob.blob.aabb);
+    const graph = try semi_dual_graph.build(allocator, triang, blob, expanded_aabbs, danger_len);
 
     return .{
+        .arena = arena,
+        .blob = blob,
         .triang = triang,
         .graph = graph,
     };
