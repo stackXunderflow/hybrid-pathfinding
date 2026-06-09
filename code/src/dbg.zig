@@ -90,18 +90,22 @@ pub const Debugger = struct {
     }
 
     pub fn point(self: *Debugger, p: Point2, o: Options) !void {
+        if (@import("builtin").mode != .Debug) return;
         try self.append_item(.{ .type = "point", .point = p, .label = o.label }, o.layout);
     }
 
     pub fn line(self: *Debugger, p1: Point2, p2: Point2, o: Options) !void {
+        if (@import("builtin").mode != .Debug) return;
         try self.append_item(.{ .type = "line", .from = p1, .to = p2, .label = o.label }, o.layout);
     }
 
     pub fn triangulation(self: *Debugger, points: []const Point2, triangles: []const u32, o: Options) !void {
+        if (@import("builtin").mode != .Debug) return;
         try self.append_item(.{ .type = "triangulation", .points = points, .triangles = triangles, .label = o.label }, o.layout);
     }
 
     pub fn graph(self: *Debugger, points: []const Point2, edges: []const GraphEdge, o: Options) !void {
+        if (@import("builtin").mode != .Debug) return;
         const allocator = self.arena.allocator();
         const points_copy = try allocator.dupe(Point2, points);
         const edges_copy = try allocator.dupe(GraphEdge, edges);
@@ -109,6 +113,7 @@ pub const Debugger = struct {
     }
 
     pub fn mesh(self: *Debugger, mesh_points: []const Point2, o: Options) !void {
+        if (@import("builtin").mode != .Debug) return;
         const allocator = self.arena.allocator();
         const copy = try allocator.dupe(Point2, mesh_points);
         try self.append_item(.{ .type = "mesh", .points = copy, .label = o.label }, o.layout);

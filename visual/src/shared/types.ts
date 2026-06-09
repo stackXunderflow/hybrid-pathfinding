@@ -29,8 +29,34 @@ export interface Robot {
 	end: Point;
 }
 
+export type PointType =
+	| { robot: Record<string, never> }
+	| { hull: number }
+	| { local: Record<string, never> };
+
+export type PathResult =
+	| {
+			ok: {
+				points: Point[];
+				types: PointType[];
+				length: number;
+			};
+	  }
+	| {
+			err: 'start_blocked' | 'end_blocked' | 'no_path';
+	  };
+
+export interface AbstractStruct {
+	points: Point[];
+	indices: number[];
+}
+
 export interface SceneOutput {
+	time_report: string;
 	robot: Robot;
+	result: PathResult;
+	triangulations: (AbstractStruct | null)[];
+	graphs: (AbstractStruct | null)[];
 	borders: SceneBorders;
 	blobs: BlobContent[];
 	debug?: DebugLayout[] | null;

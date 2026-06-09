@@ -4,10 +4,11 @@ const Allocator = std.mem.Allocator;
 const common = @import("../common.zig");
 const Point2 = common.Point2;
 const AABB = common.AABB;
+const dbg = @import("../dbg.zig");
 const global = @import("../global.zig");
 const BlobContent = global.BlobContent;
+const Output = @import("../main.zig").Output;
 const intersection = @import("intersection.zig");
-const dbg = @import("../dbg.zig");
 const triangulation = @import("triangulation.zig");
 const Triangle = triangulation.Triangle;
 const Triangulation = triangulation.Triangulation;
@@ -46,26 +47,23 @@ pub const Graph = struct {
 
         return nearest;
     }
+
+    pub fn asOutputAbstract(self: Graph, allocator: Allocator) !Output.AbstractStruct {
+        var edges: std.ArrayList(u32) = .empty;
+
+        var it = self.connections.keyIterator();
+        while (it.next()) |node| {
+            for (self.connections.get(node.*).?) |conn| {
+                try edges.append(allocator, node.*);
+                try edges.append(allocator, conn.to);
+            }
+        }
+
+        return .{ .indices = try edges.toOwnedSlice(allocator), .points = self.points };
+    }
 };
 
 pub const null_node = std.math.maxInt(u32);
-
-pub fn collectEdges(gpa: Allocator, graph: Graph) ![]const dbg.GraphEdge {
-    var count: usize = 0;
-    var it = graph.connections.iterator();
-    while (it.next()) |entry| count += entry.value_ptr.*.len;
-
-    var edges = try gpa.alloc(dbg.GraphEdge, count);
-    var i: usize = 0;
-    it = graph.connections.iterator();
-    while (it.next()) |entry| {
-        for (entry.value_ptr.*) |conn| {
-            edges[i] = .{ .from = entry.key_ptr.*, .to = conn.to, .weight = conn.weight };
-            i += 1;
-        }
-    }
-    return edges;
-}
 
 pub fn build(gpa: Allocator, triang: Triangulation, blob: BlobContent, expanded_aabbs: []const AABB, danger_len: f32) !Graph {
     const collection = triang.points;

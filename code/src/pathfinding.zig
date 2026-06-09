@@ -3,6 +3,7 @@ const Allocator = std.mem.Allocator;
 const ArenaAllocator = std.heap.ArenaAllocator;
 
 const common = @import("common.zig");
+const Output = @import("main.zig").Output;
 const Point2 = common.Point2;
 const Vec2 = common.Vec2;
 const Robot = common.Robot;
@@ -48,6 +49,27 @@ pub const Result = union(enum) {
     end_blocked,
     no_path,
     ok: Path,
+
+    pub fn asOutputResult(self: Result, allocator: Allocator) !Output.Result {
+        return switch (self) {
+            .ok => |ok| {
+                const points = try allocator.alloc(Point2, ok.items.len);
+                const types = try allocator.alloc(PointType, ok.items.len);
+                for (ok.items, 0..) |item, i| {
+                    points[i] = item.point;
+                    types[i] = item.point_type;
+                }
+                return .{ .ok = .{
+                    .points = points,
+                    .types = types,
+                    .length = ok.len(),
+                } };
+            },
+            .start_blocked => .{ .err = .start_blocked },
+            .end_blocked => .{ .err = .end_blocked },
+            .no_path => .{ .err = .no_path },
+        };
+    }
 };
 
 pub fn findPath(
@@ -193,7 +215,7 @@ fn buildPath(gpa: Allocator, debugger: *Debugger, origin: Point2, direction: Vec
         const ccw_len = variants[0].len();
         const cw_len = variants[1].len();
 
-        if (through_blob_len < @min(ccw_len, cw_len)) {
+        if (through_blob_len < @min(ccw_len, cw_len) * 1) {
             try path.append(gpa, .{ .point = in, .point_type = .{ .hull = intersection.index } });
             try path.appendSlice(gpa, through_blob.items);
             try path.append(gpa, .{ .point = out, .point_type = .{ .hull = intersection.index } });

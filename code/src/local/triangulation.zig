@@ -7,6 +7,7 @@ const Point2 = common.Point2;
 const Debugger = @import("../dbg.zig").Debugger;
 const local = @import("../local.zig");
 const PointsCollection = local.PointsCollection;
+const Output = @import("../main.zig").Output;
 const Cache = @import("triangulation/cache.zig").Cache;
 const normalization = @import("triangulation/normalization.zig");
 
@@ -18,6 +19,17 @@ pub const Superstructure = struct {
 pub const Triangulation = struct {
     points: PointsCollection,
     triangles: []const Triangle,
+
+    pub fn asOutputAbstract(self: Triangulation, allocator: Allocator) !Output.AbstractStruct {
+        const triangles = try allocator.alloc(u32, 3 * self.triangles.len);
+        for (self.triangles, 0..) |triangle, i| {
+            triangles[i * 3] = triangle.nodes[0];
+            triangles[i * 3 + 1] = triangle.nodes[1];
+            triangles[i * 3 + 2] = triangle.nodes[2];
+        }
+
+        return .{ .indices = triangles, .points = self.points.items };
+    }
 };
 
 pub const Triangle = struct {

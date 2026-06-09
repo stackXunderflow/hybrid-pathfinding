@@ -25,6 +25,9 @@
 		obstacles: boolean;
 		robot: boolean;
 		blobs: boolean;
+		path: boolean;
+		triangulations: boolean;
+		graphs: boolean;
 		debug: boolean;
 		vertices: boolean;
 		fills: boolean;
@@ -57,6 +60,8 @@
 	let mouseInCanvas = $state(false);
 	let selection = $state<Selection>(null);
 	let draftMesh = $state<Point[]>([]);
+	let resultDismissed = $state(false);
+
 	let initialized = false;
 	let drag:
 		| { mode: 'pan'; last: Point }
@@ -344,6 +349,76 @@
 			}
 		}
 
+		if (layers.triangulations && output?.triangulations) {
+			const color = '#a855f7'; // Purple
+			ctx.strokeStyle = color;
+			ctx.lineWidth = 1.5;
+			ctx.setLineDash([4, 4]);
+			for (const triang of output.triangulations) {
+				if (!triang) continue;
+				for (let i = 0; i + 2 < triang.indices.length; i += 3) {
+					const a = triang.points[triang.indices[i]];
+					const b = triang.points[triang.indices[i + 1]];
+					const c = triang.points[triang.indices[i + 2]];
+					if (!a || !b || !c) continue;
+					drawPolyline([a, b, c], true);
+					if (layers.fills) {
+						ctx.fillStyle = `${color}12`;
+						ctx.fill();
+					}
+					ctx.stroke();
+				}
+				if (layers.vertices) {
+					triang.points.forEach((point) => drawPoint(point, 2.5, color, true));
+				}
+			}
+			ctx.setLineDash([]);
+		}
+
+		if (layers.graphs && output?.graphs) {
+			const color = '#84cc16'; // Salatovy/lime green
+			ctx.strokeStyle = color;
+			ctx.lineWidth = 1.5;
+			ctx.setLineDash([]);
+			for (const graph of output.graphs) {
+				if (!graph) continue;
+				for (let i = 0; i + 1 < graph.indices.length; i += 2) {
+					const from = graph.points[graph.indices[i]];
+					const to = graph.points[graph.indices[i + 1]];
+					if (!from || !to) continue;
+					drawPolyline([from, to], false);
+					ctx.stroke();
+				}
+				if (layers.vertices) {
+					graph.points.forEach((point) => drawPoint(point, 3, color, true));
+				}
+			}
+		}
+
+		if (layers.path && output?.result && 'ok' in output.result && output.result.ok) {
+			const pathOk = output.result.ok;
+			const pts = pathOk.points;
+			const typs = pathOk.types;
+			ctx.lineWidth = 4;
+			ctx.strokeStyle = '#15803d'; // Тёмно-зелёный цвет для всего маршрута
+			ctx.setLineDash([]);
+			for (let i = 0; i < pts.length - 1; i++) {
+				const p1 = pts[i];
+				const p2 = pts[i + 1];
+
+				ctx.beginPath();
+				ctx.moveTo(sx(p1.x), sy(p1.y));
+				ctx.lineTo(sx(p2.x), sy(p2.y));
+				ctx.stroke();
+			}
+
+			if (layers.vertices) {
+				pts.forEach((p) => {
+					drawPoint(p, 3.5, '#15803d');
+				});
+			}
+		}
+
 		if (layers.robot && scene?.robot) {
 			const rr = scene.robot.radius * scale;
 			ctx.beginPath();
@@ -367,6 +442,7 @@
 			ctx.setLineDash([]);
 			draftMesh.forEach((point) => drawPoint(point, 4, '#111827'));
 		}
+
 	}
 
 	function hitTest(world: Point): Selection {
@@ -577,6 +653,11 @@
 		if (canvas) draw();
 	});
 
+	$effect(() => {
+		output;
+		resultDismissed = false;
+	});
+
 	onMount(() => {
 		resize();
 		const observer = new ResizeObserver(resize);
@@ -590,6 +671,28 @@
 </script>
 
 <div class="relative h-full w-full bg-white">
+	{#if !resultDismissed && output?.result}
+		{@const res = output.result}
+		<div class="absolute left-1/2 top-3 z-10 flex -translate-x-1/2 items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold shadow-md {('err' in res) ? 'bg-red-600 text-white' : 'bg-white text-slate-900 ring-1 ring-slate-200'}">
+			{#if 'err' in res}
+				<span class="material-symbols-outlined text-base">error</span>
+				<span>
+					{#if res.err === 'start_blocked'}Start is blocked
+					{:else if res.err === 'end_blocked'}End is blocked
+					{:else if res.err === 'no_path'}No path found
+					{:else}{res.err}
+					{/if}
+				</span>
+			{:else}
+				<span class="material-symbols-outlined text-base text-green-600">check_circle</span>
+				<span>Result: <strong>{res.ok.length.toFixed(2)}</strong></span>
+			{/if}
+			<button onclick={() => (resultDismissed = true)} class="ml-1 grid h-5 w-5 place-items-center rounded-full hover:bg-black/10" title="Hide">
+				<span class="material-symbols-outlined text-sm">close</span>
+			</button>
+		</div>
+	{/if}
+
 	<canvas
 		bind:this={canvas}
 		class="block h-full w-full {cursorMap[tool]}"
@@ -610,13 +713,6 @@
 		{/if}
 	</div>
 
-	<button
-		type="button"
-		class="absolute right-3 top-3 rounded border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50"
-		onclick={fitToScene}
-	>
-		Fit
-	</button>
 
 	{#if tool === 'add-mesh' && draftMesh.length > 0}
 		<div class="absolute left-3 top-3 rounded border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 shadow-sm">

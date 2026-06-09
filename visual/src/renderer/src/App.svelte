@@ -28,6 +28,9 @@
 		obstacles: true,
 		robot: true,
 		blobs: true,
+		path: true,
+		triangulations: false,
+		graphs: false,
 		debug: true,
 		vertices: true,
 		fills: true,
@@ -47,6 +50,9 @@
 		{ id: 'obstacles', label: 'Obstacles' },
 		{ id: 'robot', label: 'Robot' },
 		{ id: 'blobs', label: 'Convex hulls' },
+		{ id: 'path', label: 'Path' },
+		{ id: 'triangulations', label: 'Triangulation' },
+		{ id: 'graphs', label: 'Graphs' },
 	];
 
 	const viewLayers: { id: keyof Omit<typeof layers, 'debugLayouts'>; label: string }[] = [
@@ -387,6 +393,8 @@
 	<footer class="flex items-center gap-3 border-t border-slate-200 bg-white px-3 text-xs text-slate-500">
 		{#if $error}
 			<span class="truncate text-red-600">{$error}</span>
+		{:else if $sceneOutput?.time_report}
+			<span class="truncate">Ready ({$sceneOutput.time_report.replace(/\n/g, '  ')})</span>
 		{:else}
 			<span>Ready</span>
 		{/if}
