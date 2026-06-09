@@ -3,7 +3,7 @@ const Allocator = std.mem.Allocator;
 const ArenaAllocator = std.heap.ArenaAllocator;
 
 const common = @import("common.zig");
-const Output = @import("main.zig").Output;
+const Output = @import("planner.zig").Output;
 const Point2 = common.Point2;
 const Vec2 = common.Vec2;
 const Robot = common.Robot;

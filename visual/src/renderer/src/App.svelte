@@ -130,6 +130,12 @@
 			event.preventDefault();
 			void saveScene();
 		}
+		if (!(event.ctrlKey || event.metaKey || event.altKey) && event.code === 'KeyS' && event.target instanceof HTMLElement && event.target.tagName !== 'INPUT' && event.target.tagName !== 'TEXTAREA') {
+			if (!window.electronAPI) {
+				event.preventDefault();
+				void runBinary();
+			}
+		}
 		if (event.code === 'Escape') helpOpen = false;
 		if (event.code === 'Escape') logViewer = null;
 	}
@@ -177,7 +183,7 @@
 		<button class="rounded border border-slate-200 px-3 py-1.5 text-xs font-medium hover:bg-slate-50" onclick={saveSceneAs} disabled={!$sceneInput}>
 			Save as
 		</button>
-		<button class="rounded bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-700" onclick={runBinary} disabled={!$activeScenePath}>
+		<button class="rounded bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-700" onclick={runBinary} disabled={!$sceneInput}>
 			Run
 		</button>
 		<button

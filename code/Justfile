@@ -1,0 +1,26 @@
+dev:
+    zig build
+
+release:
+    zig build -Doptimize=ReleaseFast
+
+release-server:
+    zig build -Doptimize=ReleaseFast -Dcpu=baseline
+
+profile-build:
+    mkdir -p zig-out/bin
+    zig build-exe \
+        -OReleaseFast \
+        -fno-omit-frame-pointer \
+        -fno-strip \
+        --dep code \
+        --dep cli \
+        -Mroot=src/main.zig \
+        -Mcode=src/root.zig \
+        -ODebug \
+        -Mcli=zig-pkg/cli-0.11.0-2eKe_6sIAQB1njsE9sfrNvd2HxmQej13ebo-D3kBuFX3/src/root.zig \
+        --cache-dir .zig-cache \
+        --global-cache-dir "$HOME/.cache/zig" \
+        --name code-profile \
+        --zig-lib-dir /usr/lib/zig/ \
+        -femit-bin=zig-out/bin/code-profile

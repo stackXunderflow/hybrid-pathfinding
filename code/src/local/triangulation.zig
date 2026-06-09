@@ -7,7 +7,7 @@ const Point2 = common.Point2;
 const Debugger = @import("../dbg.zig").Debugger;
 const local = @import("../local.zig");
 const PointsCollection = local.PointsCollection;
-const Output = @import("../main.zig").Output;
+const Output = @import("../planner.zig").Output;
 const Cache = @import("triangulation/cache.zig").Cache;
 const normalization = @import("triangulation/normalization.zig");
 

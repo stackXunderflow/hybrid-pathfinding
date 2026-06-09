@@ -1,0 +1,17 @@
+set shell := ["zsh", "-cu"]
+
+# Dev electron mode (hot reload)
+dev-electron:
+    npm run dev
+
+# Build electron app (main + preload + renderer)
+build-electron:
+    npm run build
+
+# Dev web mode (renderer only, hot reload, opens in browser)
+dev-web:
+    npx vite -c vite.web.config.ts
+
+# Build web dist (renderer only, static output to dist/)
+build-web:
+    npx vite build -c vite.web.config.ts
