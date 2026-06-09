@@ -90,7 +90,7 @@ pub fn findPath(
     defer allocator.free(hull_intersections);
 
     if (hull_intersections.len == 0) {
-        return straightLinePath(robot);
+        return try straightLinePath(allocator, robot);
     }
 
     if (hull_intersections.len == 1 and hull_intersections[0].in == null and hull_intersections[0].out == null) {
@@ -105,10 +105,12 @@ pub fn findPath(
     };
 }
 
-fn straightLinePath(robot: Robot) Result {
-    const start: PathItem = .{ .point = robot.start, .point_type = .robot };
-    const end: PathItem = .{ .point = robot.end, .point_type = .robot };
-    return .{ .ok = .{ .items = &[2]PathItem{ start, end } } };
+fn straightLinePath(allocator: Allocator, robot: Robot) !Result {
+    const items = try allocator.alloc(PathItem, 2);
+    items[0] = .{ .point = robot.start, .point_type = .robot };
+    items[1] = .{ .point = robot.end, .point_type = .robot };
+
+    return .{ .ok = .{ .items = items } };
 }
 
 fn singleBlobStrategy(allocator: Allocator, robot: Robot, geometry: local.LocalGeometry) !Result {
