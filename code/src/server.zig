@@ -40,6 +40,8 @@ pub fn start(io: std.Io, gpa: Allocator, port: u16) !void {
     }
 }
 
+const json_header: []const std.http.Header = &[1]std.http.Header{.{ .name = "Content-Type", .value = "application/json" }};
+
 fn handleClient(allocator: Allocator, io: std.Io, http_server: *std.http.Server, transfer_buf: []u8) !void {
     var request = try http_server.receiveHead();
 
@@ -69,5 +71,5 @@ fn handleClient(allocator: Allocator, io: std.Io, http_server: *std.http.Server,
         return;
     };
 
-    try request.respond(result, .{ .status = .ok });
+    try request.respond(result, .{ .status = .ok, .extra_headers = json_header });
 }
