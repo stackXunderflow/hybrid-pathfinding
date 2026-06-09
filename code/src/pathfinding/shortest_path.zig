@@ -13,6 +13,10 @@ const dbg = @import("../dbg.zig");
 const Debugger = dbg.Debugger;
 const global = @import("../global.zig");
 const local = @import("../local.zig");
+const Graph = @import("../local/semi_dual_graph.zig").Graph;
+const pathfinding = @import("../pathfinding.zig");
+const PathItem = pathfinding.PathItem;
+const Path = pathfinding.Path;
 const BlobContent = global.BlobContent;
 
 pub const PointType = enum {
@@ -22,6 +26,20 @@ pub const PointType = enum {
 
 pub const LocalPath = struct {
     points: []const u32,
+
+    pub fn deinit(self: LocalPath, allocator: Allocator) void {
+        allocator.free(self.points);
+    }
+
+    pub fn asPath(self: LocalPath, geometry: local.LocalGeometry, allocator: Allocator) !Path {
+        const graph = geometry.graph;
+        const path = try allocator.alloc(PathItem, self.points.len);
+        for (self.points, 0..) |pt, i| {
+            const item: PathItem = .{ .point = graph.points[pt], .point_type = if (pt < graph.boundary_count) .{ .hull = geometry.index } else .local };
+            path[i] = item;
+        }
+        return .{ .items = path };
+    }
 };
 
 const QueueItem = struct {

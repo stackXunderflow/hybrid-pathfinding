@@ -96,9 +96,6 @@ fn cyrusBeckIntersection(debugger: *Debugger, origin: Point2, direction: Vec2, l
         }
     }
 
-    std.log.debug("TIN: {}", .{tin});
-    std.log.debug("TOUT: {}", .{tout});
-    std.log.debug("INDEX: {}", .{blob_id});
     const in: ?IndexPoint = if (tin >= F32_EPSILON) .{ .index = index_in, .t = tin } else null;
     const out: ?IndexPoint = if (tout <= length + F32_EPSILON and tout >= F32_EPSILON) .{ .index = index_out, .t = tout } else null;
 

@@ -27,6 +27,7 @@ pub const LocalGeometry = struct {
     blob: BlobContent,
     triang: triangulation.Triangulation,
     graph: semi_dual_graph.Graph,
+    index: u32,
 
     pub fn deinit(self: *LocalGeometry, gpa: Allocator) void {
         self.graph.deinit(gpa);
@@ -55,6 +56,7 @@ pub const PointsCollection = struct {
 pub fn localGeometry(
     gpa: Allocator,
     blob: BlobContent,
+    index: u32,
     robot: Robot,
     density: f32,
     seed: u64,
@@ -78,6 +80,7 @@ pub fn localGeometry(
     return .{
         .arena = arena,
         .blob = blob,
+        .index = index,
         .triang = triang,
         .graph = graph,
     };

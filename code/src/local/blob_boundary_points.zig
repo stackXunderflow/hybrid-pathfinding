@@ -12,8 +12,7 @@ fn generateEdgePoints(gpa: Allocator, a: Point2, b: Point2, density: f32) ![]con
     var points: std.ArrayList(Point2) = .empty;
     try points.append(gpa, a);
 
-    const spacing = 1.0 / density;
-    const n: usize = @intFromFloat(@floor(length / spacing));
+    const n: usize = @intFromFloat(@floor(length * density));
 
     const u = try vec.normilize();
     const step = length / @as(f32, @floatFromInt(n));

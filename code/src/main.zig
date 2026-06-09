@@ -108,7 +108,7 @@ fn run() !void {
     std.debug.print("DENSITY: {}", .{density});
 
     for (globalGeometry.blobs, 0..) |blob, i| {
-        localGeometry[i] = try local.localGeometry(ginit.gpa, blob, robot, density, 42);
+        localGeometry[i] = try local.localGeometry(ginit.gpa, blob, @truncate(i), robot, density, 42);
         for (localGeometry[i].triang.points.items) |p| {
             try debugger.point(p, .{});
         }
@@ -126,7 +126,16 @@ fn run() !void {
     const pf_end = std.Io.Timestamp.now(ginit.io, clock);
     const pf_elapsed = pf_start.durationTo(pf_end);
 
-    std.log.info("PF RESULT: {}", .{pf_result});
+    switch (pf_result) {
+        .ok => |ok| {
+            for (ok.items[0 .. ok.items.len - 1], ok.items[1..]) |f, t| {
+                try debugger.line(f.point, t.point, .{ .layout = "pf" });
+            }
+        },
+        else => {
+            std.log.debug("Result: {any}", .{pf_result});
+        },
+    }
 
     std.log.debug("global: {d:.6}s", .{@as(f64, @floatFromInt(global_elapsed.nanoseconds)) / @as(f64, std.time.ns_per_s)});
     std.log.debug("local: {d:.6}s", .{@as(f64, @floatFromInt(local_elapsed.nanoseconds)) / @as(f64, std.time.ns_per_s)});
