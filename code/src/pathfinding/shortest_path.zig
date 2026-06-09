@@ -43,6 +43,7 @@ pub const LocalPath = struct {
 };
 
 const QueueItem = struct {
+    path_len: f32,
     weight: f32,
     node: u32,
 
@@ -52,7 +53,7 @@ const QueueItem = struct {
 };
 
 const MapItem = struct {
-    weight: f32,
+    path_len: f32,
     prev: u32,
 };
 
@@ -62,27 +63,34 @@ pub fn find(allocator: Allocator, geometry: local.LocalGeometry, from: u32, to: 
     std.debug.assert(from < graph.points.len);
     std.debug.assert(to < graph.points.len);
 
+    const end = geometry.graph.points[to];
+
     var map: std.AutoHashMap(u32, MapItem) = .init(allocator);
-    try map.put(from, .{ .weight = 0, .prev = std.math.maxInt(u32) });
+    try map.put(from, .{ .path_len = 0, .prev = std.math.maxInt(u32) });
     defer map.deinit();
 
     var queue: std.PriorityQueue(QueueItem, void, QueueItem.compareFn) = .empty;
     defer queue.deinit(allocator);
-    try queue.push(allocator, .{ .node = from, .weight = 0 });
+    try queue.push(allocator, .{ .node = from, .weight = 0, .path_len = 0 });
 
     blk: while (queue.pop()) |current| {
+        if (current.node == to) {
+            break :blk;
+        }
+
         const connections = graph.connections.get(current.node).?;
         for (connections) |conn| {
-            const next: QueueItem = .{ .weight = current.weight + conn.weight, .node = conn.to };
+            const next_len = current.path_len + conn.len;
+            const next: QueueItem = .{
+                .path_len = next_len,
+                .weight = next_len + end.magnitude(geometry.graph.points[conn.to]),
+                .node = conn.to,
+            };
 
             const old = map.get(next.node);
-            if (old == null or old.?.weight > next.weight) {
-                try map.put(next.node, .{ .weight = next.weight, .prev = current.node });
+            if (old == null or old.?.path_len > next.path_len) {
+                try map.put(next.node, .{ .path_len = next.path_len, .prev = current.node });
                 try queue.push(allocator, next);
-
-                if (next.node == to) {
-                    break :blk;
-                }
             }
         }
     }
@@ -96,6 +104,8 @@ pub fn find(allocator: Allocator, geometry: local.LocalGeometry, from: u32, to: 
 
     const points = try path.toOwnedSlice(allocator);
     std.mem.reverse(u32, points);
+
+    std.log.debug("Count: {}", .{map.count()});
 
     return .{ .points = points };
 }

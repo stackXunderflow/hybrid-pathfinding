@@ -15,7 +15,7 @@ const Triangulation = triangulation.Triangulation;
 
 pub const Connection = struct {
     to: u32,
-    weight: f32,
+    len: f32,
 };
 
 pub const Graph = struct {
@@ -105,8 +105,8 @@ pub fn build(gpa: Allocator, triang: Triangulation, blob: BlobContent, expanded_
         const a: u32 = @intCast(i);
         const b: u32 = @intCast(j);
         const w = graph_points[a].magnitude(graph_points[b]);
-        try adjacency[a].append(gpa, .{ .to = b, .weight = w });
-        try adjacency[b].append(gpa, .{ .to = a, .weight = w });
+        try adjacency[a].append(gpa, .{ .to = b, .len = w });
+        try adjacency[b].append(gpa, .{ .to = a, .len = w });
     }
 
     for (triang.triangles, 0..) |tri, i| {
@@ -124,8 +124,8 @@ pub fn build(gpa: Allocator, triang: Triangulation, blob: BlobContent, expanded_
 
         for (boundary_nodes[0..boundary_len]) |boundary_node| {
             const w = graph_points[center_node].magnitude(graph_points[boundary_node]);
-            try adjacency[center_node].append(gpa, .{ .to = boundary_node, .weight = w });
-            try adjacency[boundary_node].append(gpa, .{ .to = center_node, .weight = w });
+            try adjacency[center_node].append(gpa, .{ .to = boundary_node, .len = w });
+            try adjacency[boundary_node].append(gpa, .{ .to = center_node, .len = w });
         }
     }
 
@@ -138,8 +138,8 @@ pub fn build(gpa: Allocator, triang: Triangulation, blob: BlobContent, expanded_
             const to = center_indices[nei_index];
             if (to == null_node or i >= nei_index) continue;
             const w = graph_points[from].magnitude(graph_points[to]);
-            try adjacency[from].append(gpa, .{ .to = to, .weight = w });
-            try adjacency[to].append(gpa, .{ .to = from, .weight = w });
+            try adjacency[from].append(gpa, .{ .to = to, .len = w });
+            try adjacency[to].append(gpa, .{ .to = from, .len = w });
         }
     }
 
