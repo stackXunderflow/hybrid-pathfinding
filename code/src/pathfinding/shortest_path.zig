@@ -38,7 +38,7 @@ pub const LocalPath = struct {
             const item: PathItem = .{ .point = graph.points[pt], .point_type = if (pt < graph.boundary_count) .{ .hull = geometry.index } else .local };
             path[i] = item;
         }
-        return .{ .items = path };
+        return .{ .items = path, .blob_start = geometry.index, .blob_end = geometry.index };
     }
 };
 
@@ -104,8 +104,6 @@ pub fn find(allocator: Allocator, geometry: local.LocalGeometry, from: u32, to: 
 
     const points = try path.toOwnedSlice(allocator);
     std.mem.reverse(u32, points);
-
-    std.log.debug("Count: {}", .{map.count()});
 
     return .{ .points = points };
 }

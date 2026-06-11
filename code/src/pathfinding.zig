@@ -32,6 +32,8 @@ pub const PathItem = struct {
 
 pub const Path = struct {
     items: []const PathItem,
+    blob_start: ?u32,
+    blob_end: ?u32,
 
     pub fn len(self: Path) f32 {
         var acc: f32 = 0;
@@ -110,7 +112,7 @@ fn straightLinePath(allocator: Allocator, robot: Robot) !Result {
     items[0] = .{ .point = robot.start, .point_type = .robot };
     items[1] = .{ .point = robot.end, .point_type = .robot };
 
-    return .{ .ok = .{ .items = items } };
+    return .{ .ok = .{ .items = items, .blob_end = null, .blob_start = null } };
 }
 
 fn singleBlobStrategy(allocator: Allocator, robot: Robot, geometry: local.LocalGeometry) !Result {
@@ -132,22 +134,28 @@ fn singleBlobStrategy(allocator: Allocator, robot: Robot, geometry: local.LocalG
 }
 
 fn simplifyPath(gpa: Allocator, debugger: *Debugger, path: Path, blobs_content: []const BlobContent) !Result {
-    var simplified: std.ArrayList(PathItem) = .fromOwnedSlice(try gpa.dupe(PathItem, path.items));
+    const best_prev: []u32 = try gpa.alloc(u32, path.items.len);
+    defer gpa.free(best_prev);
 
-    blk: while (true) {
-        const total = simplified.items.len;
-        if (total <= 3) {
-            break;
-        }
-        for (0..total - 2, 2..) |near, far| {
-            const near_type = simplified.items[near].point_type;
-            const far_type = simplified.items[far].point_type;
+    best_prev[0] = std.math.maxInt(u32);
+    for (best_prev[1..], 1..) |_, i| {
+        best_prev[i] = @truncate(i - 1);
+    }
+
+    const n = path.items.len;
+
+    for (0..n - 2) |near| {
+        for (near + 2..n) |far| {
+            const near_type = path.items[near].point_type;
+            const far_type = path.items[far].point_type;
 
             if (near_type == .local or far_type == .local) continue;
             if (near_type == .hull and far_type == .hull and near_type.hull == far_type.hull) continue;
+            if (near_type == .robot and path.blob_start != null) continue;
+            if (far_type == .robot and path.blob_end != null) continue;
 
-            const near_point = simplified.items[near].point;
-            const far_point = simplified.items[far].point;
+            const near_point = path.items[near].point;
+            const far_point = path.items[far].point;
 
             const vec = near_point.vecTo(far_point);
             const length = vec.len();
@@ -157,22 +165,36 @@ fn simplifyPath(gpa: Allocator, debugger: *Debugger, path: Path, blobs_content: 
             defer gpa.free(hull_intersections);
 
             if (hull_intersections.len == 0 or (hull_intersections.len == 1 and hull_intersections[0].in == null and hull_intersections[0].out == null)) {
-                _ = simplified.orderedRemove(near + 1);
-                continue :blk;
+                const candidate: u32 = @truncate(near);
+                if (best_prev[far] > candidate) {
+                    best_prev[far] = candidate;
+                }
             }
         }
-
-        break;
     }
+
+    var simplified: std.ArrayList(PathItem) = .empty;
+    var current = best_prev.len - 1;
+    while (current != best_prev[0]) {
+        try simplified.append(gpa, path.items[current]);
+        current = best_prev[current];
+    }
+
+    std.mem.reverse(PathItem, simplified.items);
 
     return .{ .ok = .{
         .items = try simplified.toOwnedSlice(gpa),
+        .blob_start = path.blob_start,
+        .blob_end = path.blob_end,
     } };
 }
 
 fn buildPath(gpa: Allocator, debugger: *Debugger, origin: Point2, direction: Vec2, end: Point2, hull_intersections: []const HullIntersection, local_geometries: []const local.LocalGeometry) !Result {
     var path: std.ArrayList(PathItem) = .empty;
     try path.append(gpa, .{ .point = origin, .point_type = .robot });
+
+    var blob_start: ?u32 = null;
+    var blob_end: ?u32 = null;
 
     const first = hull_intersections[0];
     if (first.in == null) {
@@ -190,6 +212,7 @@ fn buildPath(gpa: Allocator, debugger: *Debugger, origin: Point2, direction: Vec
             },
 
             .some => |av| {
+                blob_start = geometry.index;
                 const nearest = geometry.graph.findNearestHullPoint(out);
 
                 const lpath = (try shortest_path.find(gpa, geometry, av.graph_node, nearest)) orelse return .no_path;
@@ -246,6 +269,7 @@ fn buildPath(gpa: Allocator, debugger: *Debugger, origin: Point2, direction: Vec
             },
 
             .some => |av| {
+                blob_end = geometry.index;
                 const nearest = geometry.graph.findNearestHullPoint(in);
 
                 const lpath = (try shortest_path.find(gpa, geometry, nearest, av.graph_node)) orelse return .no_path;
@@ -257,7 +281,7 @@ fn buildPath(gpa: Allocator, debugger: *Debugger, origin: Point2, direction: Vec
 
     try path.append(gpa, .{ .point = end, .point_type = .robot });
 
-    return .{ .ok = .{ .items = try path.toOwnedSlice(gpa) } };
+    return .{ .ok = .{ .items = try path.toOwnedSlice(gpa), .blob_start = blob_start, .blob_end = blob_end } };
 }
 
 fn pathsAroundHull(allocator: Allocator, hull: Blob, in_point: Point2, in: intersections.IndexPoint, out_point: Point2, out: intersections.IndexPoint, point_type: PointType) ![2]Path {
@@ -282,7 +306,7 @@ fn pathsAroundHull(allocator: Allocator, hull: Blob, in_point: Point2, in: inter
     try cw.append(allocator, .{ .point = out_point, .point_type = point_type });
 
     return [2]Path{
-        .{ .items = try ccw.toOwnedSlice(allocator) },
-        .{ .items = try cw.toOwnedSlice(allocator) },
+        .{ .items = try ccw.toOwnedSlice(allocator), .blob_start = null, .blob_end = null },
+        .{ .items = try cw.toOwnedSlice(allocator), .blob_start = null, .blob_end = null },
     };
 }
