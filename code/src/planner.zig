@@ -3,6 +3,7 @@ const Allocator = std.mem.Allocator;
 
 const TimeStamp = std.Io.Timestamp;
 
+const main = @import("main.zig");
 const common = @import("common.zig");
 const Robot = common.Robot;
 const Point = common.Point2;
@@ -94,7 +95,7 @@ pub fn plan(io: std.Io, gpa: Allocator, allocator: Allocator, input: Input) ![]c
     report.local_start = report.now();
     const localGeometry = try allocator.alloc(local.LocalGeometry, globalGeometry.blobs.len);
 
-    const density = common.constants.POINTS_DENSITY_PER_ROBOT_AREA / (std.math.pi * robot.radius * robot.radius);
+    const density = main.config.density / (std.math.pi * robot.radius * robot.radius);
 
     for (globalGeometry.blobs, 0..) |blob, i| {
         localGeometry[i] = try local.localGeometry(gpa, blob, @truncate(i), robot, density, 42);

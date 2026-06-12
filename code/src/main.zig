@@ -24,10 +24,11 @@ fn output(io: std.Io, content: []const u8) !void {
     try writer.flush();
 }
 
-var config = struct {
+pub var config = struct {
     scene_path: []const u8 = "",
     serve: bool = false,
     port: u16 = 8080,
+    density: f32 = 3.0,
 }{};
 
 var ginit: std.process.Init = undefined;
@@ -55,6 +56,11 @@ pub fn main(init: std.process.Init) !void {
                     .long_name = "port",
                     .help = "Порт для HTTP сервера",
                     .value_ref = r.mkRef(&config.port),
+                },
+                .{
+                    .long_name = "density",
+                    .help = "Количество точек на площадь робота",
+                    .value_ref = r.mkRef(&config.density),
                 },
             }),
             .target = .{ .action = .{ .exec = run } },
