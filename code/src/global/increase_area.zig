@@ -25,10 +25,10 @@ pub fn increaseArea(allocator: Allocator, points: []const Point2, robotRadius: f
         const normal = normalA.plus(normalB);
 
         const vecE = try normal.normilize();
-        const min_sin = 0.25;
-        const sinVec = vecE.x * normalA.x + vecE.y * normalA.y;
+        const min_cos = 0.25;
+        const cosVec = vecE.x * normalA.x + vecE.y * normalA.y;
 
-        if (sinVec < min_sin) {
+        if (cosVec < min_cos) {
             const p1 = Point2{
                 .x = points[index].x + normalA.x * increaseLen + vecE.x * increaseLen,
                 .y = points[index].y + normalA.y * increaseLen + vecE.y * increaseLen,
@@ -41,8 +41,8 @@ pub fn increaseArea(allocator: Allocator, points: []const Point2, robotRadius: f
             try biggerHull.append(allocator, p2);
         } else {
             const newPoint = Point2{
-                .x = points[index].x + vecE.x * (increaseLen / sinVec),
-                .y = points[index].y + vecE.y * (increaseLen / sinVec),
+                .x = points[index].x + vecE.x * (increaseLen / cosVec),
+                .y = points[index].y + vecE.y * (increaseLen / cosVec),
             };
             try biggerHull.append(allocator, newPoint);
         }
