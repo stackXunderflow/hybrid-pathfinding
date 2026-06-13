@@ -130,7 +130,15 @@ fn singleBlobStrategy(allocator: Allocator, robot: Robot, geometry: local.LocalG
     const lpath = (try shortest_path.find(allocator, geometry, from.some.graph_node, to.some.graph_node)) orelse return .no_path;
     defer lpath.deinit(allocator);
 
-    return .{ .ok = try lpath.asPath(geometry, allocator) };
+    const lglobalpath = try lpath.asPath(geometry, allocator);
+    defer allocator.free(lglobalpath.items);
+
+    const path = try allocator.alloc(PathItem, lglobalpath.items.len + 2);
+    path[0] = .{ .point = robot.start, .point_type = .robot };
+    @memcpy(path[1 .. path.len - 1], lglobalpath.items);
+    path[path.len - 1] = .{ .point = robot.end, .point_type = .robot };
+
+    return .{ .ok = .{ .items = path, .blob_start = lglobalpath.blob_start, .blob_end = lglobalpath.blob_end } };
 }
 
 fn simplifyPath(gpa: Allocator, debugger: *Debugger, path: Path, blobs_content: []const BlobContent) !Result {
