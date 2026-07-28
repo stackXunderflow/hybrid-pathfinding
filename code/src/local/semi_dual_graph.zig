@@ -7,6 +7,7 @@ const AABB = common.AABB;
 const dbg = @import("../dbg.zig");
 const global = @import("../global.zig");
 const BlobContent = global.BlobContent;
+const BVH = @import("bvh.zig");
 const Output = @import("../planner.zig").Output;
 const intersection = @import("intersection.zig");
 const triangulation = @import("triangulation.zig");
@@ -65,7 +66,7 @@ pub const Graph = struct {
 
 pub const null_node = std.math.maxInt(u32);
 
-pub fn build(gpa: Allocator, triang: Triangulation, blob: BlobContent, expanded_aabbs: []const AABB, danger_len: f32) !Graph {
+pub fn build(gpa: Allocator, triang: Triangulation, blob: BlobContent, expanded_aabbs: []const AABB, bvh: BVH.BVH, danger_len: f32) !Graph {
     const collection = triang.points;
     const all_points = collection.items;
     const boundary_start: u32 = @intCast(collection.obstacles);
@@ -80,7 +81,7 @@ pub fn build(gpa: Allocator, triang: Triangulation, blob: BlobContent, expanded_
 
     for (triang.triangles, 0..) |tri, i| {
         const center = triangleCenter(all_points, tri);
-        if (!intersection.isValidPoint(center, danger_len, blob, expanded_aabbs)) continue;
+        if (!intersection.isValidPoint(center, danger_len, blob, expanded_aabbs, bvh)) continue;
         center_indices[i] = boundary_count + valid_center_count;
         valid_center_count += 1;
         try centers.append(gpa, center);

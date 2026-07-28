@@ -2,6 +2,7 @@ const std = @import("std");
 const common = @import("common.zig");
 const Point2 = common.Point2;
 const Vec2 = common.Vec2;
+const AABB = common.AABB;
 const Mesh = common.Mesh;
 const ArenaAllocator = std.heap.ArenaAllocator;
 const ArrayList = std.ArrayList;
@@ -97,6 +98,13 @@ pub const Debugger = struct {
     pub fn line(self: *Debugger, p1: Point2, p2: Point2, o: Options) !void {
         if (@import("builtin").mode != .Debug) return;
         try self.append_item(.{ .type = "line", .from = p1, .to = p2, .label = o.label }, o.layout);
+    }
+
+    pub fn aabb(self: *Debugger, box: AABB, o: Options) !void {
+        try self.line(.{ .x = box.Xmin, .y = box.Ymin }, .{ .x = box.Xmin, .y = box.Ymax }, o);
+        try self.line(.{ .x = box.Xmin, .y = box.Ymax }, .{ .x = box.Xmax, .y = box.Ymax }, o);
+        try self.line(.{ .x = box.Xmax, .y = box.Ymax }, .{ .x = box.Xmax, .y = box.Ymin }, o);
+        try self.line(.{ .x = box.Xmax, .y = box.Ymin }, .{ .x = box.Xmin, .y = box.Ymin }, o);
     }
 
     pub fn triangulation(self: *Debugger, points: []const Point2, triangles: []const u32, o: Options) !void {

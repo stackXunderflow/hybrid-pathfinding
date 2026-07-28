@@ -4,21 +4,45 @@ const Mesh = common.Mesh;
 const Point2 = common.Point2;
 const Vec2 = common.Vec2;
 const BlobContent = @import("../global.zig").BlobContent;
+const BVH = @import("bvh.zig");
 
-pub fn isValidPoint(point: Point2, danger_len: f32, blob: BlobContent, aabbs: []const AABB) bool {
+pub fn isValidPoint(point: Point2, danger_len: f32, blob: BlobContent, aabbs: []const AABB, bvh: BVH.BVH) bool {
     if (!blob.blob.containsPoint(point)) return false;
 
-    for (blob.meshs, aabbs) |mesh, aabb| {
-        if (!aabb.containsPoint(point)) {
-            continue;
-        }
-        if (dangerIntersection(mesh, point, danger_len)) {
-            return false;
-        }
-    }
+    const context: BVHContext = .{
+        .point = point,
+        .danger_len = danger_len,
+        .blob = blob,
+        .aabbs = aabbs,
+    };
 
-    return true;
+    return switch (try bvh.iterate(context, 0)) {
+        .early => false,
+        .ok => true,
+    };
 }
+
+const BVHContext = struct {
+    point: Point2,
+    danger_len: f32,
+    blob: BlobContent,
+    aabbs: []const AABB,
+
+    pub fn check(self: BVHContext, meshs: []const u32) !BVH.BVH.IterResult {
+        for (meshs) |i| {
+            const aabb = self.aabbs[i];
+            if (!aabb.containsPoint(self.point)) {
+                continue;
+            }
+            const mesh = self.blob.meshs[i];
+            if (dangerIntersection(mesh, self.point, self.danger_len)) {
+                return .early;
+            }
+        }
+
+        return .ok;
+    }
+};
 
 pub fn rayIntersection(mesh: Mesh, point: Point2) bool {
     if (mesh.points.len < 3) return false;

@@ -127,6 +127,14 @@ pub const AABB = struct {
     pub fn expand(self: AABB, distance: f32) AABB {
         return .{ .Xmin = self.Xmin - distance, .Ymin = self.Ymin - distance, .Xmax = self.Xmax + distance, .Ymax = self.Ymax + distance };
     }
+
+    pub fn midX(self: AABB) f32 {
+        return (self.Xmin + self.Xmax) / 2;
+    }
+
+    pub fn midY(self: AABB) f32 {
+        return (self.Ymin + self.Ymax) / 2;
+    }
 };
 
 pub const Mesh = struct {

@@ -16,6 +16,7 @@ const halton = @import("local/halton.zig");
 const intersection = @import("local/intersection.zig");
 pub const semi_dual_graph = @import("local/semi_dual_graph.zig");
 const triangulation = @import("local/triangulation.zig");
+const BVH = @import("local/bvh.zig");
 
 pub const PointInfo = union(enum) {
     blocked,
@@ -71,11 +72,14 @@ pub fn localGeometry(
         expanded_aabbs[i] = AABB.fromPoints(mesh.points).expand(danger_len);
     }
 
+    var bvh: BVH.BVH = try .init(gpa, blob.blob, expanded_aabbs, robot.radius);
+    defer bvh.deinit();
+
     const edge_density = std.math.sqrt(density);
-    const points = try generatePoints(allocator, blob, expanded_aabbs, danger_len, density, edge_density, seed);
+    const points = try generatePoints(allocator, blob, expanded_aabbs, bvh, danger_len, density, edge_density, seed);
 
     const triang = try triangulation.Delone.run(allocator, points, blob.blob.aabb);
-    const graph = try semi_dual_graph.build(allocator, triang, blob, expanded_aabbs, danger_len);
+    const graph = try semi_dual_graph.build(allocator, triang, blob, expanded_aabbs, bvh, danger_len);
 
     return .{
         .arena = arena,
@@ -90,6 +94,7 @@ fn generatePoints(
     gpa: Allocator,
     blob: BlobContent,
     expanded_aabbs: []const AABB,
+    bvh: BVH.BVH,
     danger_len: f32,
     density: f32,
     edge_density: f32,
@@ -102,7 +107,7 @@ fn generatePoints(
     const points = try halton.generateHallPoints2D(gpa, aabb.width(), aabb.height(), aabb.Xmin, aabb.Ymin, density, seed);
 
     for (points) |point| {
-        if (intersection.isValidPoint(point, danger_len, blob, expanded_aabbs)) {
+        if (intersection.isValidPoint(point, danger_len, blob, expanded_aabbs, bvh)) {
             try filtred.append(gpa, point);
         }
     }
@@ -116,7 +121,7 @@ fn generatePoints(
         defer gpa.free(boundary_points);
 
         for (boundary_points) |point| {
-            if (intersection.isValidPoint(point, danger_len, blob, expanded_aabbs)) {
+            if (intersection.isValidPoint(point, danger_len, blob, expanded_aabbs, bvh)) {
                 try filtred.append(gpa, point);
             }
         }
